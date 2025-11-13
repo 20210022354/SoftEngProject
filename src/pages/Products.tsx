@@ -39,13 +39,15 @@ const Products = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    loadData();
-  }, []);
+  loadData();
+}, []);
 
-  const loadData = () => {
-    setProducts(StorageService.getProducts());
-    setCategories(StorageService.getCategories());
-  };
+const loadData = async () => { // <-- Add 'async'
+  const products = await StorageService.getProducts(); // <-- Add 'await'
+  const categories = await StorageService.getCategories(); // <-- Add 'await'
+  setProducts(products);
+  setCategories(categories);
+};
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch =

@@ -32,18 +32,22 @@ const Layout = ({ children }: LayoutProps) => {
   }, [navigate, location]);
 
   const handleLogout = () => {
+    // We need to make this async for Firebase Auth
     StorageService.logout();
     toast.success("Logged out successfully");
     navigate("/");
   };
 
+  // --- THIS IS THE EDITED SECTION ---
+  // I've commented out all pages except for "Products"
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+    // { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Package, label: "Products", path: "/products" },
-    { icon: ArrowLeftRight, label: "Transactions", path: "/transactions" },
-    { icon: BarChart3, label: "Reports", path: "/reports" },
-    { icon: Settings, label: "Settings", path: "/settings" },
+    // { icon: ArrowLeftRight, label: "Transactions", path: "/transactions" },
+    // { icon: BarChart3, label: "Reports", path: "/reports" },
+    // { icon: Settings, label: "Settings", path: "/settings" },
   ];
+  // --- END OF EDITED SECTION ---
 
   return (
     <div className="min-h-screen flex w-full bg-background">

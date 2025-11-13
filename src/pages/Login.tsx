@@ -15,38 +15,41 @@ import { toast } from "sonner";
 import { Lock, User } from "lucide-react";
 
 const Login = () => {
-  const [username, setUsername] = useState("");
+  // --- STATE ---
+  // We use 'email' instead of 'username' because Firebase Auth uses email
+  const [email, setEmail] = useState(""); 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  // --- HANDLER ---
+  // This is the correct async version
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    setTimeout(() => {
-      const user = StorageService.login(username, password);
-      if (user) {
-        toast.success("Welcome to DTL Inventory System");
-        navigate("/dashboard");
-      } else {
-        toast.error("Invalid credentials.");
-      }
-      setLoading(false);
-    }, 500);
-  };
+    // It's a real network request to Firebase
+    const user = await StorageService.login(email, password);
 
+    if (user) {
+      toast.success("Welcome to DTL Inventory System");
+      navigate("/products");
+    }
+    // No 'else' needed, StorageService.login shows the error toast
+    setLoading(false);
+  };
+  
+  // --- RENDER ---
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-dark p-4">
       <div className="w-full max-w-md">
-        {/* ✅ Logo section (replaces DTL GIAN text) */}
+        {/* Logo section */}
         <div className="text-center mb-8 flex flex-col items-center">
           <img
             src="/dtl.png"
             alt="DTL Logo"
             className="w-28 h-28 object-contain mb-2"
           />
-
           <p className="text-sm text-muted-foreground mt-1">
             Inventory Management System
           </p>
@@ -61,22 +64,26 @@ const Login = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
+              
+              {/* === USERNAME/EMAIL INPUT === */}
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                {/* Changed Label to "Email" */}
+                <Label htmlFor="email">Email</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="username"
-                    type="text"
-                    placeholder="Enter username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    id="email"
+                    type="email" // Changed type to "email"
+                    placeholder="Enter email" // Changed placeholder
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)} // Changed to setEmail
                     className="pl-10 bg-secondary border-primary/20 focus:border-primary"
                     required
                   />
                 </div>
               </div>
 
+              {/* === PASSWORD INPUT === */}
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
@@ -93,6 +100,7 @@ const Login = () => {
                 </div>
               </div>
 
+              {/* === SUBMIT BUTTON === */}
               <Button
                 type="submit"
                 className="w-full bg-gradient-red hover:opacity-90 transition-all glow-red"
