@@ -1,5 +1,37 @@
-# Object file
-*.o
+# .gitignore
 
-# Ada Library Information
-*.ali
+### --- Secrets --- ###
+# Ignore environment variables. These are private!
+.env
+.env.*
+
+### --- Dependencies --- ###
+# This folder is huge and recreated by running 'npm install'
+/node_modules
+
+### --- Build Output --- ###
+# This folder is the compiled site, created by 'npm run build'
+/dist
+
+### --- IDE / Editor --- ###
+# Ignore Visual Studio Code settings
+.vscode/
+
+### --- Caches --- ###
+# Ignore Vite's cache directory
+.vite/
+
+### --- OS Specific --- ###
+# Ignore macOS system files
+.DS_Store
+
+# Ignore Windows system files
+Thumbs.db
+desktop.ini
+
+### --- Logs --- ###
+# Ignore log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
