@@ -14,7 +14,7 @@ import {
   updateDoc,
   deleteDoc,
   getDoc,
-  writeBatch, // Added 'writeBatch' back
+  writeBatch, 
 } from 'firebase/firestore';
 import {
   signInWithEmailAndPassword,
@@ -23,7 +23,7 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 
-// This is the only STORAGE_KEYS object
+
 const STORAGE_KEYS = {
   USER: 'dtl_user',
 };
@@ -152,7 +152,6 @@ export const StorageService = {
   },
 
   // --- TRANSACTIONS (FIRESTORE) ---
-  // Added this function back in
   getTransactions: async (): Promise<StockTransaction[]> => {
     try {
       const querySnapshot = await getDocs(collection(db, 'transactions'));
@@ -172,7 +171,6 @@ export const StorageService = {
     }
   },
 
-  // Added this function back in
   addTransactionAndUpdateProduct: async (
     transactionData: Omit<StockTransaction, 'id'>,
     productId: string,

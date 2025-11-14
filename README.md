@@ -94,7 +94,5 @@ The Vercel project has been configured with the following environment variables 
 * `VITE_MEASUREMENT_ID`
 
 
-
-
 ### Firebase Auth Domain
 To allow the Vercel URL to be a trusted login source, the live domain (`[your-url].vercel.app`) has been added to the **"Authorized domains"** list in the Firebase Authentication settings.
