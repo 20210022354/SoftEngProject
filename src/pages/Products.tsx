@@ -42,9 +42,9 @@ const Products = () => {
   loadData();
 }, []);
 
-const loadData = async () => { // <-- Add 'async'
-  const products = await StorageService.getProducts(); // <-- Add 'await'
-  const categories = await StorageService.getCategories(); // <-- Add 'await'
+const loadData = async () => { 
+  const products = await StorageService.getProducts(); 
+  const categories = await StorageService.getCategories(); 
   setProducts(products);
   setCategories(categories);
 };
