@@ -1,12 +1,11 @@
 // src/firebase.ts
 
-// 1. Import the functions you need from the SDKs
+//imported functions
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth"; // If you need authentication
-// Add any other services you need, like getStorage
+import { getAuth } from "firebase/auth"; // for authentication
 
-// 2. Your web app's Firebase configuration (PASTE YOURS HERE)
+//dont mess, this is for webapp to access firebase database
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_API_KEY,
   authDomain: import.meta.env.VITE_AUTH_DOMAIN,
@@ -17,11 +16,9 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_MEASUREMENT_ID
 };
 
-// 3. Initialize Firebase
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// 4. Initialize and export the Firebase services you want to use
-// This makes them available to your entire app
+// initializing the firestore and auth services
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-// export const storage = getStorage(app);

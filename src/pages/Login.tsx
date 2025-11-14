@@ -16,26 +16,25 @@ import { Lock, User } from "lucide-react";
 
 const Login = () => {
   // --- STATE ---
-  // We use 'email' instead of 'username' because Firebase Auth uses email
+  // gi change from user to email since we now use firebase for log in authentication
   const [email, setEmail] = useState(""); 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   // --- HANDLER ---
-  // This is the correct async version
+  // correct async version
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // It's a real network request to Firebase
+    //request to firebase
     const user = await StorageService.login(email, password);
 
     if (user) {
       toast.success("Welcome to DTL Inventory System");
       navigate("/products");
     }
-    // No 'else' needed, StorageService.login shows the error toast
     setLoading(false);
   };
   
@@ -67,16 +66,15 @@ const Login = () => {
               
               {/* === USERNAME/EMAIL INPUT === */}
               <div className="space-y-2">
-                {/* Changed Label to "Email" */}
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
-                    type="email" // Changed type to "email"
-                    placeholder="Enter email" // Changed placeholder
+                    type="email" 
+                    placeholder="Enter email" 
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)} // Changed to setEmail
+                    onChange={(e) => setEmail(e.target.value)} 
                     className="pl-10 bg-secondary border-primary/20 focus:border-primary"
                     required
                   />
