@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Products from "./pages/Products";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
+import Transactions from "./pages/Transactions";
 
 const queryClient = new QueryClient();
 
@@ -15,12 +16,14 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+ <BrowserRouter>
   <Routes>
     <Route path="/" element={<Login />} />
-    
+
     <Route path="/products" element={<Layout><Products /></Layout>} />
-    
+
+    <Route path="/transactions" element={<Layout><Transactions /></Layout>} />
+
     <Route path="*" element={<NotFound />} />
   </Routes>
 </BrowserRouter>

@@ -2,11 +2,8 @@ import { ReactNode, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { StorageService } from "@/lib/storage";
 import {
-  LayoutDashboard,
   Package,
   ArrowLeftRight,
-  BarChart3,
-  Settings,
   LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -38,16 +35,10 @@ const Layout = ({ children }: LayoutProps) => {
     navigate("/");
   };
 
-  // --- THIS IS THE EDITED SECTION ---
-  // I've commented out all pages except for "Products"
   const navItems = [
-    // { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Package, label: "Products", path: "/products" },
-    // { icon: ArrowLeftRight, label: "Transactions", path: "/transactions" },
-    // { icon: BarChart3, label: "Reports", path: "/reports" },
-    // { icon: Settings, label: "Settings", path: "/settings" },
+    { icon: ArrowLeftRight, label: "Transactions", path: "/transactions" },
   ];
-  // --- END OF EDITED SECTION ---
 
   return (
     <div className="min-h-screen flex w-full bg-background">

@@ -1,7 +1,7 @@
 // src/lib/storage.ts
 
-// I've removed StockTransaction and Sale, as they're no longer needed
-import { Product, Category, User } from '@/types';
+// I've added StockTransaction back
+import { Product, StockTransaction, Category, User } from '@/types';
 import { toast } from 'sonner';
 
 // --- FIREBASE IMPORTS ---
@@ -14,7 +14,8 @@ import {
   updateDoc,
   deleteDoc,
   getDoc,
-} from 'firebase/firestore'; // Removed 'writeBatch'
+  writeBatch, // Added 'writeBatch' back
+} from 'firebase/firestore';
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -22,12 +23,13 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 
+// This is the only STORAGE_KEYS object
 const STORAGE_KEYS = {
   USER: 'dtl_user',
 };
 
 export const StorageService = {
-  
+  // --- AUTH (FIREBASE) ---
   login: async (email: string, password: string): Promise<User | null> => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -103,6 +105,7 @@ export const StorageService = {
     }
   },
 
+  // --- PRODUCTS (FIRESTORE) ---
   getProducts: async (): Promise<Product[]> => {
     try {
       const querySnapshot = await getDocs(collection(db, 'products'));
@@ -148,4 +151,49 @@ export const StorageService = {
     }
   },
 
+  // --- TRANSACTIONS (FIRESTORE) ---
+  // Added this function back in
+  getTransactions: async (): Promise<StockTransaction[]> => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'transactions'));
+      const transactions: StockTransaction[] = [];
+      querySnapshot.forEach((doc) => {
+        transactions.push(doc.data() as StockTransaction);
+      });
+      return transactions.sort(
+        (a, b) =>
+          new Date(b.transactionDate).getTime() -
+          new Date(a.transactionDate).getTime()
+      );
+    } catch (e) {
+      console.error('Error getting transactions: ', e);
+      toast.error('Failed to load transactions');
+      return [];
+    }
+  },
+
+  // Added this function back in
+  addTransactionAndUpdateProduct: async (
+    transactionData: Omit<StockTransaction, 'id'>,
+    productId: string,
+    newQuantity: number
+  ) => {
+    const batch = writeBatch(db);
+    const transRef = doc(collection(db, 'transactions'));
+    const transaction: StockTransaction = {
+      ...transactionData,
+      id: transRef.id,
+    };
+    batch.set(transRef, transaction);
+    const productRef = doc(db, 'products', productId);
+    batch.update(productRef, { quantity: newQuantity });
+
+    try {
+      await batch.commit();
+      toast.success('Transaction recorded');
+    } catch (e) {
+      console.error('Error in transaction batch: ', e);
+      toast.error('Transaction failed to record');
+    }
+  },
 };
