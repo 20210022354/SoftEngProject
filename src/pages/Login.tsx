@@ -33,7 +33,7 @@ const Login = () => {
 
     if (user) {
       toast.success("Welcome to DTL Inventory System");
-      navigate("/products");
+      navigate("/dashboard"); // Change this from "/products" to "/dashboard"
     }
     setLoading(false);
   };

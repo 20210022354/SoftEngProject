@@ -1,11 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { StorageService } from "@/lib/storage";
-import {
-  Package,
-  ArrowLeftRight,
-  LogOut,
-} from "lucide-react";
+import { LayoutDashboard, Package, ArrowLeftRight, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -36,6 +32,7 @@ const Layout = ({ children }: LayoutProps) => {
   };
 
   const navItems = [
+    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Package, label: "Products", path: "/products" },
     { icon: ArrowLeftRight, label: "Transactions", path: "/transactions" },
   ];

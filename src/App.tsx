@@ -8,6 +8,7 @@ import Products from "./pages/Products";
 import Layout from "./components/Layout";
 import NotFound from "./pages/NotFound";
 import Transactions from "./pages/Transactions";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -24,7 +25,10 @@ const App = () => (
 
     <Route path="/transactions" element={<Layout><Transactions /></Layout>} />
 
+    <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+
     <Route path="*" element={<NotFound />} />
+
   </Routes>
 </BrowserRouter>
     </TooltipProvider>
