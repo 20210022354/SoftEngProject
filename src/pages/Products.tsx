@@ -46,9 +46,19 @@ const Products = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setProducts(StorageService.getProducts());
-    setCategories(StorageService.getCategories());
+  const loadData = async () => {
+    try {
+      // Wait for both lists to download
+      const [prods, cats] = await Promise.all([
+        StorageService.getProducts(),
+        StorageService.getCategories()
+      ]);
+      setProducts(prods);
+      setCategories(cats);
+    } catch (error) {
+      toast.error("Failed to load products");
+      console.error(error);
+    }
   };
 
   const filteredProducts = products.filter((product) => {
@@ -60,7 +70,7 @@ const Products = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleSaveProduct = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveProduct = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const categoryId = formData.get("categoryId") as string;
@@ -83,24 +93,35 @@ const Products = () => {
       supplier: formData.get("supplier") as string,
     };
 
-    if (editingProduct) {
-      StorageService.updateProduct(editingProduct.id, productData);
-      toast.success("Product updated successfully");
-    } else {
-      StorageService.addProduct(productData);
-      toast.success("Product added successfully");
+    try {
+      if (editingProduct) {
+        await StorageService.updateProduct(editingProduct.id, productData);
+        toast.success("Product updated successfully");
+      } else {
+        await StorageService.addProduct(productData);
+        toast.success("Product added successfully");
+      }
+      
+      // Reload data to see changes
+      await loadData();
+      
+      setIsDialogOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      toast.error("Failed to save product");
+      console.error(error);
     }
-
-    loadData();
-    setIsDialogOpen(false);
-    setEditingProduct(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this product?")) {
-      StorageService.deleteProduct(id);
-      toast.success("Product deleted");
-      loadData();
+      try {
+        await StorageService.deleteProduct(id);
+        toast.success("Product deleted");
+        await loadData();
+      } catch (error) {
+        toast.error("Failed to delete product");
+      }
     }
   };
 
@@ -355,7 +376,6 @@ const Products = () => {
         {filteredProducts.map((product) => (
           <Card
             key={product.id}
-            // ✅ Layout Fix: flex-col and h-full ensure card takes full height of grid row
             className={`border-primary/20 hover:shadow-card transition-all flex flex-col h-full ${
               product.quantity <= product.reorderLevel ? "shadow-glow-red" : ""
             }`}
@@ -383,7 +403,6 @@ const Products = () => {
               </div>
             </CardHeader>
 
-            {/* ✅ Layout Fix: flex-1 forces this section to grow and push the footer down */}
             <CardContent className="space-y-3 flex-1">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
@@ -419,7 +438,6 @@ const Products = () => {
               )}
             </CardContent>
 
-            {/* ✅ Layout Fix: Buttons moved to separate footer div with padding */}
             <div className="p-6 pt-0 mt-auto">
               <div className="flex gap-2">
                 <Button

@@ -1,211 +1,98 @@
-import { Product, StockTransaction, Sale, Category, User } from '@/types';
+// src/lib/storage.ts
+import { 
+  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, getDoc, addDoc 
+} from 'firebase/firestore';
+import { 
+  signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser 
+} from 'firebase/auth';
+import { db, auth } from "./firebase.ts"; // Adjust path if firebase.ts is in src/
+import { Product, StockTransaction, Category, User } from '@/types';
+import { toast } from 'sonner';
 
-const STORAGE_KEYS = {
-  PRODUCTS: 'dtl_products',
-  TRANSACTIONS: 'dtl_transactions',
-  SALES: 'dtl_sales',
-  CATEGORIES: 'dtl_categories',
-  USER: 'dtl_user',
-};
-
-// ✅ Default Categories (Used only for first-time setup)
-const defaultCategories: Category[] = [
-  { id: '1', name: 'Rum', description: 'Rum products' },
-  { id: '2', name: 'Beers', description: 'Beer products' },
-  { id: '3', name: 'Spirits', description: 'Spirit Products' },
-  { id: '4', name: 'Food', description: 'Food items' },
-  { id: '5', name: 'Equipment', description: 'Equipment and tools' },
-  { id: '6', name: 'Supplies', description: 'Bar supplies' },
-];
-
-// ✅ Default Products
-const defaultProducts: Product[] = [
-  {
-    id: '1',
-    categoryId: '1',
-    categoryName: 'Rum',
-    name: 'Tanduay',
-    sku: 'JD-001',
-    unit: 'Bottle',
-    unitCost: 25.0,
-    sellingPrice: 45.0,
-    quantity: 50,
-    reorderLevel: 15,
-    location: 'Bar',
-    status: 'Active',
-    supplier: 'Premium Liquor Co.',
-  },
-  {
-    id: '2',
-    categoryId: '2',
-    categoryName: 'Beers',
-    name: 'Corona Extra',
-    sku: 'CR-001',
-    unit: 'Case',
-    unitCost: 18.0,
-    sellingPrice: 35.0,
-    quantity: 8,
-    reorderLevel: 10,
-    location: 'Warehouse',
-    status: 'Active',
-    supplier: 'Beer Distributors Inc.',
-  },
-  {
-    id: '3',
-    categoryId: '3',
-    categoryName: 'Food',
-    name: 'Nachos Mix',
-    sku: 'NC-001',
-    unit: 'Pack',
-    unitCost: 5.0,
-    sellingPrice: 12.0,
-    quantity: 30,
-    reorderLevel: 20,
-    expiryDate: '2025-12-31',
-    location: 'Kitchen',
-    status: 'Active',
-    supplier: 'Food Supply Co.',
-  },
-];
+const STORAGE_KEYS = { USER: 'dtl_user' };
 
 export const StorageService = {
-  // ✅ Categories
-  getCategories: (): Category[] => {
-    const stored = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
+  // --- AUTH ---
+  login: async (email: string, password: string): Promise<User | null> => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // We assume user data is stored in a 'users' collection with the same UID
+      const userDocRef = doc(db, 'users', userCredential.user.uid);
+      const userDoc = await getDoc(userDocRef);
 
-    // If no data exists yet, load the defaults
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(defaultCategories));
-      return defaultCategories;
-    }
-
-    // ✅ FIXED: Simply return what is saved. Do not force-reset defaults.
-    return JSON.parse(stored);
-  },
-
-  saveCategories: (categories: Category[]) => {
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
-  },
-
-  addCategory: (category: Category) => {
-    const categories = StorageService.getCategories();
-    categories.push(category);
-    StorageService.saveCategories(categories);
-  },
-
-  updateCategory: (id: string, updates: Partial<Category>) => {
-    const categories = StorageService.getCategories();
-    const index = categories.findIndex((c) => c.id === id);
-    if (index !== -1) {
-      categories[index] = { ...categories[index], ...updates };
-      StorageService.saveCategories(categories);
+      if (userDoc.exists()) {
+        const userData = { id: userDoc.id, ...userDoc.data() } as User;
+        StorageService.setCurrentUser(userData);
+        return userData;
+      }
+      return null;
+    } catch (error) {
+      console.error("Login failed", error);
+      return null;
     }
   },
 
-  deleteCategory: (id: string) => {
-    const categories = StorageService.getCategories().filter((c) => c.id !== id);
-    StorageService.saveCategories(categories);
+  logout: async () => {
+    await signOut(auth);
+    localStorage.removeItem(STORAGE_KEYS.USER);
   },
 
-  // ✅ Products
-  getProducts: (): Product[] => {
-    const stored = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(defaultProducts));
-      return defaultProducts;
-    }
-    return JSON.parse(stored);
-  },
-
-  saveProducts: (products: Product[]) => {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-  },
-
-  addProduct: (product: Product) => {
-    const products = StorageService.getProducts();
-    products.push(product);
-    StorageService.saveProducts(products);
-  },
-
-  updateProduct: (id: string, updates: Partial<Product>) => {
-    const products = StorageService.getProducts();
-    const index = products.findIndex((p) => p.id === id);
-    if (index !== -1) {
-      products[index] = { ...products[index], ...updates };
-      StorageService.saveProducts(products);
-    }
-  },
-
-  deleteProduct: (id: string) => {
-    const products = StorageService.getProducts().filter((p) => p.id !== id);
-    StorageService.saveProducts(products);
-  },
-
-  // ✅ Transactions
-  getTransactions: (): StockTransaction[] => {
-    const stored = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    return stored ? JSON.parse(stored) : [];
-  },
-
-  saveTransactions: (transactions: StockTransaction[]) => {
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
-  },
-
-  addTransaction: (transaction: StockTransaction) => {
-    const transactions = StorageService.getTransactions();
-    transactions.push(transaction);
-    StorageService.saveTransactions(transactions);
-  },
-
-  // ✅ Sales
-  getSales: (): Sale[] => {
-    const stored = localStorage.getItem(STORAGE_KEYS.SALES);
-    return stored ? JSON.parse(stored) : [];
-  },
-
-  saveSales: (sales: Sale[]) => {
-    localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(sales));
-  },
-
-  addSale: (sale: Sale) => {
-    const sales = StorageService.getSales();
-    sales.push(sale);
-    StorageService.saveSales(sales);
-  },
-
-  // ✅ User Session
   getCurrentUser: (): User | null => {
     const stored = localStorage.getItem(STORAGE_KEYS.USER);
     return stored ? JSON.parse(stored) : null;
   },
 
   setCurrentUser: (user: User | null) => {
-    if (user) {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.USER);
-    }
+    if (user) localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    else localStorage.removeItem(STORAGE_KEYS.USER);
   },
 
-  // ✅ Auth
-  login: (username: string, password: string): User | null => {
-    if (username === 'admin' && password === '123') {
-      const user: User = {
-        id: '1',
-        username: 'admin',
-        email: 'admin@dtl.com',
-        fullName: 'DTL Administrator',
-        role: 'Admin',
-        status: 'Active',
-        createdAt: new Date().toISOString(),
-      };
-      StorageService.setCurrentUser(user);
-      return user;
-    }
-    return null;
+  // --- CATEGORIES ---
+  getCategories: async (): Promise<Category[]> => {
+    const snapshot = await getDocs(collection(db, 'categories'));
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Category));
   },
 
-  logout: () => {
-    StorageService.setCurrentUser(null);
+  // --- PRODUCTS ---
+  getProducts: async (): Promise<Product[]> => {
+    const snapshot = await getDocs(collection(db, 'products'));
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Product));
   },
+
+  addProduct: async (product: Product) => {
+    // If ID is missing, Firestore can generate one, but if you generate it locally:
+    const ref = doc(db, 'products', product.id); 
+    await setDoc(ref, product);
+  },
+
+  updateProduct: async (id: string, updates: Partial<Product>) => {
+    const ref = doc(db, 'products', id);
+    await updateDoc(ref, updates);
+  },
+
+  deleteProduct: async (id: string) => {
+    await deleteDoc(doc(db, 'products', id));
+  },
+
+  // --- TRANSACTIONS ---
+  getTransactions: async (): Promise<StockTransaction[]> => {
+    const snapshot = await getDocs(collection(db, 'transactions'));
+    const txs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as StockTransaction));
+    // Sort by date descending
+    return txs.sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime());
+  },
+
+  addTransaction: async (transaction: StockTransaction) => {
+    // We use setDoc because you likely generate the ID in the UI, 
+    // or you can use addDoc(collection(db, 'transactions'), transaction)
+    await setDoc(doc(db, 'transactions', transaction.id), transaction);
+  },
+
+  updateTransaction: async (id: string, updates: Partial<StockTransaction>) => {
+    await updateDoc(doc(db, 'transactions', id), updates);
+  },
+
+  deleteTransaction: async (id: string) => {
+    await deleteDoc(doc(db, 'transactions', id));
+  }
 };

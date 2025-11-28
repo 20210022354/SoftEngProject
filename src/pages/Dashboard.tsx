@@ -1,3 +1,5 @@
+
+
 import { useEffect, useState } from "react";
 import { StorageService } from "@/lib/storage";
 import {
@@ -7,11 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Package, AlertTriangle, DollarSign, Activity } from "lucide-react";
+import { Package, AlertTriangle, Activity } from "lucide-react";
 import { DashboardStats, Product, StockTransaction } from "@/types";
 import { Badge } from "@/components/ui/badge";
-import { BadgeDollarSign } from "lucide-react";
-import { PesoIcon } from "@/pages/PesoIcon";
+import { PesoIcon } from "@/pages/PesoIcon"; // Make sure this path is correct based on your file structure
 
 const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
@@ -21,31 +22,47 @@ const Dashboard = () => {
     recentTransactions: 0,
   });
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<
-    StockTransaction[]
-  >([]);
+  const [recentTransactions, setRecentTransactions] = useState<StockTransaction[]>([]);
 
   useEffect(() => {
-    const products = StorageService.getProducts();
-    const transactions = StorageService.getTransactions();
+    const fetchDashboardData = async () => {
+      try {
+        // 1. Wait for both data sources to arrive from Firebase
+        const [products, transactions] = await Promise.all([
+          StorageService.getProducts(),
+          StorageService.getTransactions()
+        ]);
 
-    const lowStock = products.filter(
-      (p) => p.quantity <= p.reorderLevel && p.status === "Active"
-    );
-    const totalValue = products.reduce(
-      (sum, p) => sum + p.quantity * p.unitCost,
-      0
-    );
-    const recent = transactions.slice(-5).reverse();
+        // 2. Now that we have the real data, we can filter/calculate
+        const activeProducts = products.filter(p => p.status === "Active");
+        
+        const lowStock = products.filter(
+          (p) => p.quantity <= p.reorderLevel && p.status === "Active"
+        );
+        
+        const totalValue = products.reduce(
+          (sum, p) => sum + p.quantity * p.unitCost,
+          0
+        );
+        
+        const recent = transactions.slice(0, 5); // Already sorted in StorageService
 
-    setStats({
-      totalProducts: products.filter((p) => p.status === "Active").length,
-      lowStockItems: lowStock.length,
-      totalValue,
-      recentTransactions: transactions.length,
-    });
-    setLowStockProducts(lowStock);
-    setRecentTransactions(recent);
+        // 3. Update the UI
+        setStats({
+          totalProducts: activeProducts.length,
+          lowStockItems: lowStock.length,
+          totalValue,
+          recentTransactions: transactions.length,
+        });
+        setLowStockProducts(lowStock);
+        setRecentTransactions(recent);
+
+      } catch (error) {
+        console.error("Error loading dashboard data:", error);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
 
   const statCards = [
@@ -139,7 +156,7 @@ const Dashboard = () => {
                   <div className="flex-1">
                     <p className="font-medium">{product.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      SKU: {product.sku} | Category: {product.categoryName}
+                      SKU: {product.sku} | Category: {product.categoryName || "Uncategorized"}
                     </p>
                   </div>
                   <div className="text-right">

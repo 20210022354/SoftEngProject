@@ -12,34 +12,41 @@ import {
 } from "@/components/ui/card";
 import { StorageService } from "@/lib/storage";
 import { toast } from "sonner";
-import { Lock, User } from "lucide-react";
+import { Lock, Mail } from "lucide-react"; // Changed User icon to Mail icon
 
 const Login = () => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    setTimeout(() => {
-      const user = StorageService.login(username, password);
+    try {
+      // We await the real Firebase login function
+      const user = await StorageService.login(email, password);
+
       if (user) {
         toast.success("Welcome to DTL Inventory System");
         navigate("/dashboard");
       } else {
-        toast.error("Invalid credentials.");
+        // If login returns null, credentials were wrong
+        toast.error("Invalid email or password.");
       }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An unexpected error occurred.");
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-dark p-4">
       <div className="w-full max-w-md">
-        {/* ✅ Logo section (replaces DTL GIAN text) */}
+        {/* Logo section */}
         <div className="text-center mb-8 flex flex-col items-center">
           <img
             src="/dtl.png"
@@ -62,15 +69,15 @@ const Login = () => {
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="email">Email</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="username"
-                    type="text"
-                    placeholder="Enter username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="Enter email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 bg-secondary border-primary/20 focus:border-primary"
                     required
                   />

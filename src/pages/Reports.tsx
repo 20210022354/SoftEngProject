@@ -17,8 +17,20 @@ const Reports = () => {
   const [transactions, setTransactions] = useState<StockTransaction[]>([]);
 
   useEffect(() => {
-    setProducts(StorageService.getProducts());
-    setTransactions(StorageService.getTransactions());
+    const fetchData = async () => {
+      try {
+        const [prods, txs] = await Promise.all([
+          StorageService.getProducts(),
+          StorageService.getTransactions()
+        ]);
+        setProducts(prods);
+        setTransactions(txs);
+      } catch (error) {
+        toast.error("Failed to load report data");
+        console.error(error);
+      }
+    };
+    fetchData();
   }, []);
 
   const generateInventoryReport = () => {
@@ -291,7 +303,6 @@ const Reports = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Value</p>
-                {/* Fixed overflow issue with responsive text size and break-all */}
                 <p className="text-lg md:text-2xl font-bold break-all">
                   ₱
                   {products
