@@ -134,9 +134,6 @@ const Transactions = () => {
     if (editingTransaction) {
       // --- EDIT MODE ---
       // 1. Revert the OLD transaction first
-      // If we are editing the product itself, we need to revert stock on the OLD product ID,
-      // but for simplicity, we assume Product ID doesn't change or we handle it on the current product list.
-      // We essentially undo the previous math.
       const oldProduct = products.find(
         (p) => p.id === editingTransaction.productId
       );
@@ -146,7 +143,6 @@ const Transactions = () => {
           oldProduct.quantity - editingTransaction.quantity;
 
         // 2. Apply NEW transaction to the (potentially new) product
-        // Note: If productId changed, stockWithoutOldTx applies to oldProduct, and we calculate new for current `product`.
         if (oldProduct.id === productId) {
           finalStockQuantity = stockWithoutOldTx;
         } else {
@@ -163,9 +159,7 @@ const Transactions = () => {
     // Apply the NEW transaction logic
     if (transactionType === "ADJUSTMENT") {
       finalStockQuantity = quantityInput; // Direct set
-      // For adjustments, the "signedQuantity" stored is the diff, but simpler to just store the diff for history?
-      // For this system's logic shown in previous files, let's keep consistency:
-      // We need to calculate what the "Change" was for the history log.
+      // For adjustments, calculate the difference for the log
       signedQuantity =
         quantityInput -
         (editingTransaction
@@ -221,16 +215,17 @@ const Transactions = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* ✅ Layout Update: Stack vertically on mobile, row on desktop */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold mb-2">Transactions</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Transactions</h1>
           <p className="text-muted-foreground">Stock movement history</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button
               onClick={openNewTransaction}
-              className="bg-gradient-red glow-red"
+              className="bg-gradient-red glow-red w-full md:w-auto" // Full width on mobile for better ease of use
             >
               <Plus className="h-4 w-4 mr-2" />
               New Transaction
@@ -309,7 +304,6 @@ const Transactions = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="reason">Reason / Notes</Label>
-                  {/* ✅ Character Counter */}
                   <span
                     className={`text-xs ${
                       reasonInput.length >= 50
@@ -326,7 +320,7 @@ const Transactions = () => {
                   placeholder="e.g., Received from supplier"
                   className="bg-secondary border-primary/20 resize-none"
                   rows={3}
-                  maxLength={50} // ✅ Limit to 50 chars
+                  maxLength={50}
                   value={reasonInput}
                   onChange={(e) => setReasonInput(e.target.value)}
                 />
@@ -417,7 +411,7 @@ const Transactions = () => {
                       {transaction.quantity}
                     </p>
 
-                    {/* ✅ Edit & Delete Actions */}
+                    {/* Edit & Delete Actions */}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         size="icon"
