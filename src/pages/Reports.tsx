@@ -9,30 +9,88 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileDown, Calendar } from "lucide-react";
+import {
+  FileDown,
+  Calendar,
+  BarChart3,
+  ArrowDown,
+  ArrowUp,
+  Settings,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 const Reports = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<StockTransaction[]>([]);
 
+  // Chart Filters
+  const [chartRange, setChartRange] = useState("7"); // '7' or '30' days
+  const [chartMetric, setChartMetric] = useState("count"); // 'count' or 'volume'
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [prods, txs] = await Promise.all([
-          StorageService.getProducts(),
-          StorageService.getTransactions()
-        ]);
-        setProducts(prods);
-        setTransactions(txs);
-      } catch (error) {
-        toast.error("Failed to load report data");
-        console.error(error);
-      }
-    };
-    fetchData();
+    setProducts(StorageService.getProducts());
+    setTransactions(StorageService.getTransactions());
   }, []);
 
+  // --- Chart Data Logic ---
+  const getChartData = () => {
+    const days = parseInt(chartRange);
+    const data = [];
+    const now = new Date();
+
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateKey = d.toDateString(); // e.g. "Mon Jan 01 2024"
+
+      const label = d.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+
+      // Filter transactions for this specific day
+      const dayTxs = transactions.filter(
+        (t) => new Date(t.transactionDate).toDateString() === dateKey
+      );
+
+      // Breakdown by type
+      const inTxs = dayTxs.filter((t) => t.transactionType === "IN");
+      const outTxs = dayTxs.filter((t) => t.transactionType === "OUT");
+      const adjTxs = dayTxs.filter((t) => t.transactionType === "ADJUSTMENT");
+
+      let valIn = 0,
+        valOut = 0,
+        valAdj = 0;
+
+      if (chartMetric === "count") {
+        valIn = inTxs.length;
+        valOut = outTxs.length;
+        valAdj = adjTxs.length;
+      } else {
+        // Volume: sum of absolute quantity changes
+        valIn = inTxs.reduce((sum, t) => sum + Math.abs(t.quantity), 0);
+        valOut = outTxs.reduce((sum, t) => sum + Math.abs(t.quantity), 0);
+        valAdj = adjTxs.reduce((sum, t) => sum + Math.abs(t.quantity), 0);
+      }
+
+      const total = valIn + valOut + valAdj;
+
+      data.push({ label, fullDate: dateKey, valIn, valOut, valAdj, total });
+    }
+    return data;
+  };
+
+  const chartData = getChartData();
+  const maxChartValue = Math.max(...chartData.map((d) => d.total), 1); // Scale based on total stack height
+
+  // --- Report Generation Functions ---
   const generateInventoryReport = () => {
     const report = products.map((p) => ({
       SKU: p.sku,
@@ -47,7 +105,6 @@ const Reports = () => {
       Location: p.location,
       Status: p.status,
     }));
-
     downloadCSV(report, "inventory_report");
   };
 
@@ -65,7 +122,6 @@ const Reports = () => {
       Location: p.location,
       Supplier: p.supplier || "N/A",
     }));
-
     downloadCSV(report, "low_stock_report");
   };
 
@@ -78,7 +134,6 @@ const Reports = () => {
       User: tx.userName,
       Reason: tx.reason || "N/A",
     }));
-
     downloadCSV(report, "transaction_report");
   };
 
@@ -116,7 +171,6 @@ const Reports = () => {
       "Potential Revenue": totalRevenue.toFixed(2),
       "Potential Profit": totalProfit.toFixed(2),
     });
-
     downloadCSV(report, "valuation_report");
   };
 
@@ -125,7 +179,6 @@ const Reports = () => {
       toast.error("No data to export");
       return;
     }
-
     const headers = Object.keys(data[0]);
     const csvContent = [
       headers.join(","),
@@ -139,7 +192,6 @@ const Reports = () => {
     link.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     window.URL.revokeObjectURL(url);
-
     toast.success("Report downloaded successfully");
   };
 
@@ -213,18 +265,195 @@ const Reports = () => {
           </CardContent>
         </Card>
 
+        {/* ✅ UPDATED: Transaction Summary with Breakdown */}
         <Card className="border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-lg">Total Transactions</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Transactions</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{transactions.length}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              All time movements
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-3xl font-bold">{transactions.length}</span>
+              <span className="text-sm text-muted-foreground">Total</span>
+            </div>
+
+            {/* Mini Breakdown */}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="flex flex-col items-center p-1 bg-secondary rounded border border-border">
+                <span className="text-emerald-500 font-bold">
+                  {
+                    transactions.filter((t) => t.transactionType === "IN")
+                      .length
+                  }
+                </span>
+                <span className="text-muted-foreground">In</span>
+              </div>
+              <div className="flex flex-col items-center p-1 bg-secondary rounded border border-border">
+                <span className="text-primary font-bold">
+                  {
+                    transactions.filter((t) => t.transactionType === "OUT")
+                      .length
+                  }
+                </span>
+                <span className="text-muted-foreground">Out</span>
+              </div>
+              <div className="flex flex-col items-center p-1 bg-secondary rounded border border-border">
+                <span className="text-amber-500 font-bold">
+                  {
+                    transactions.filter(
+                      (t) => t.transactionType === "ADJUSTMENT"
+                    ).length
+                  }
+                </span>
+                <span className="text-muted-foreground">Adj</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* ✅ UPDATED: Analytics Chart Section (Stacked Bar) */}
+      <Card className="border-primary/20 shadow-sm">
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle className="text-lg">Analytics Overview</CardTitle>
+                <CardDescription>
+                  Visualizing stock movements over time
+                </CardDescription>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center gap-2">
+              <Select value={chartMetric} onValueChange={setChartMetric}>
+                <SelectTrigger className="w-[140px] bg-secondary border-primary/20 h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="count">Transactions</SelectItem>
+                  <SelectItem value="volume">Stock Volume</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={chartRange} onValueChange={setChartRange}>
+                <SelectTrigger className="w-[130px] bg-secondary border-primary/20 h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">Last 7 Days</SelectItem>
+                  <SelectItem value="30">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Legend */}
+          <div className="flex justify-end gap-4 text-xs text-muted-foreground mb-2">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-emerald-600"></div>Stock
+              In
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-primary"></div>Stock Out
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+              Adjustments
+            </div>
+          </div>
+
+          <div className="h-64 w-full flex items-end justify-between gap-1 md:gap-2 pt-4 pb-2">
+            {chartData.map((data, index) => {
+              // Calculate Stack Heights as percentages of the MAX total value found in chart range
+              // We use maxChartValue for scaling the whole bar container relative to chart height
+              const totalPercent = Math.max(
+                (data.total / maxChartValue) * 100,
+                1
+              );
+
+              // Inner segments are proportional to the day's total
+              const inPercent =
+                data.total > 0 ? (data.valIn / data.total) * 100 : 0;
+              const outPercent =
+                data.total > 0 ? (data.valOut / data.total) * 100 : 0;
+              const adjPercent =
+                data.total > 0 ? (data.valAdj / data.total) * 100 : 0;
+
+              return (
+                <div
+                  key={index}
+                  className="flex-1 flex flex-col items-center group relative h-full justify-end"
+                >
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block z-10 w-32">
+                    <div className="bg-popover text-popover-foreground text-xs rounded-md shadow-md py-2 px-3 border border-border">
+                      <p className="font-semibold mb-1 border-b border-border/50 pb-1">
+                        {data.fullDate}
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                        <span className="text-emerald-500">In:</span>{" "}
+                        <span className="font-mono text-right">
+                          {data.valIn}
+                        </span>
+                        <span className="text-primary">Out:</span>{" "}
+                        <span className="font-mono text-right">
+                          {data.valOut}
+                        </span>
+                        <span className="text-amber-500">Adj:</span>{" "}
+                        <span className="font-mono text-right">
+                          {data.valAdj}
+                        </span>
+                        <span className="font-bold border-t border-border/50 pt-1">
+                          Total:
+                        </span>{" "}
+                        <span className="font-bold font-mono border-t border-border/50 pt-1 text-right">
+                          {data.total}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Arrow */}
+                    <div className="w-2 h-2 bg-popover border-r border-b border-border rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1"></div>
+                  </div>
+
+                  {/* Stacked Bar Container */}
+                  <div
+                    className="w-full max-w-[30px] flex flex-col-reverse rounded-t-sm overflow-hidden bg-secondary/30 relative"
+                    style={{ height: `${totalPercent}%` }}
+                  >
+                    {/* Segments (using flex-col-reverse so IN is bottom, OUT is mid, ADJ is top) */}
+                    {inPercent > 0 && (
+                      <div
+                        className="w-full bg-emerald-600 transition-all hover:brightness-110"
+                        style={{ height: `${inPercent}%` }}
+                      ></div>
+                    )}
+                    {outPercent > 0 && (
+                      <div
+                        className="w-full bg-primary transition-all hover:brightness-110"
+                        style={{ height: `${outPercent}%` }}
+                      ></div>
+                    )}
+                    {adjPercent > 0 && (
+                      <div
+                        className="w-full bg-amber-500 transition-all hover:brightness-110"
+                        style={{ height: `${adjPercent}%` }}
+                      ></div>
+                    )}
+                  </div>
+
+                  {/* X-Axis Label */}
+                  <span className="text-[10px] text-muted-foreground mt-2 rotate-0 md:rotate-0 truncate w-full text-center">
+                    {data.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Report Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -303,7 +532,7 @@ const Reports = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Value</p>
-                <p className="text-lg md:text-2xl font-bold break-all">
+                <p className="text-xl md:text-2xl font-bold break-all">
                   ₱
                   {products
                     .reduce((sum, p) => sum + p.quantity * p.unitCost, 0)
