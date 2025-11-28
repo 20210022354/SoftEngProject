@@ -11,21 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"; // Assuming you have table components, otherwise use divs
-import { Plus, Trash2, Edit2, Save, X, Check } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, Loader2 } from "lucide-react"; // Added Loader2
 import { toast } from "sonner";
 
 interface CategoryManagerProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: () => void; // Callback to refresh parent data
+  onUpdate: () => void;
 }
 
 const CategoryManager = ({
@@ -38,6 +30,7 @@ const CategoryManager = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false); // Added loading state
 
   useEffect(() => {
     if (isOpen) {
@@ -45,11 +38,17 @@ const CategoryManager = ({
     }
   }, [isOpen]);
 
-  const loadCategories = () => {
-    setCategories(StorageService.getCategories());
+  // ✅ FIX: Made async to wait for Firebase
+  const loadCategories = async () => {
+    try {
+      const data = await StorageService.getCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error("Failed to load categories", error);
+    }
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newCategoryName.trim()) return;
 
     if (
@@ -61,17 +60,26 @@ const CategoryManager = ({
       return;
     }
 
-    const newCategory: Category = {
-      id: Date.now().toString(),
-      name: newCategoryName.trim(),
-      description: "User added category",
-    };
+    setLoading(true); // Start loading
+    try {
+      const newCategory: Category = {
+        id: Date.now().toString(),
+        name: newCategoryName.trim(),
+        description: "User added category",
+      };
 
-    StorageService.addCategory(newCategory);
-    setNewCategoryName("");
-    loadCategories();
-    onUpdate();
-    toast.success("Category added");
+      // ✅ FIX: Wait for Firebase
+      await StorageService.addCategory(newCategory);
+      
+      setNewCategoryName("");
+      await loadCategories(); // Reload list
+      onUpdate();
+      toast.success("Category added");
+    } catch (error) {
+      toast.error("Failed to add category");
+    } finally {
+      setLoading(false); // Stop loading
+    }
   };
 
   const startEdit = (category: Category) => {
@@ -80,7 +88,7 @@ const CategoryManager = ({
     setDeleteConfirmId(null);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editName.trim()) return;
 
     const isDuplicate = categories.some(
@@ -95,20 +103,30 @@ const CategoryManager = ({
     }
 
     if (editingId) {
-      StorageService.updateCategory(editingId, { name: editName.trim() });
-      setEditingId(null);
-      loadCategories();
-      onUpdate();
-      toast.success("Category updated");
+      try {
+        // ✅ FIX: Wait for Firebase
+        await StorageService.updateCategory(editingId, { name: editName.trim() });
+        setEditingId(null);
+        await loadCategories();
+        onUpdate();
+        toast.success("Category updated");
+      } catch (error) {
+        toast.error("Failed to update category");
+      }
     }
   };
 
-  const handleDelete = (id: string) => {
-    StorageService.deleteCategory(id);
-    setDeleteConfirmId(null);
-    loadCategories();
-    onUpdate();
-    toast.success("Category deleted");
+  const handleDelete = async (id: string) => {
+    try {
+      // ✅ FIX: Wait for Firebase
+      await StorageService.deleteCategory(id);
+      setDeleteConfirmId(null);
+      await loadCategories();
+      onUpdate();
+      toast.success("Category deleted");
+    } catch (error) {
+      toast.error("Failed to delete category");
+    }
   };
 
   return (
@@ -136,8 +154,8 @@ const CategoryManager = ({
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             />
           </div>
-          <Button onClick={handleAdd} className="bg-gradient-red">
-            <Plus className="h-4 w-4" />
+          <Button onClick={handleAdd} className="bg-gradient-red" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Plus className="h-4 w-4" />}
           </Button>
         </div>
 
@@ -182,7 +200,7 @@ const CategoryManager = ({
                     {deleteConfirmId === category.id ? (
                       <div className="flex items-center gap-2 animate-in slide-in-from-right-2">
                         <span className="text-xs text-destructive font-bold">
-                          Ram bayot
+                           Ram bayot
                         </span>
                         <Button
                           size="icon"

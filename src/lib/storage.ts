@@ -53,6 +53,18 @@ export const StorageService = {
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Category));
   },
 
+  addCategory: async (category: Category) => {
+    await setDoc(doc(db, 'categories', category.id), category);
+  },
+
+  deleteCategory: async (id: string) => {
+    await deleteDoc(doc(db, 'categories', id));
+  },
+
+  updateCategory: async (id: string, updates: Partial<Category>) => {
+    await updateDoc(doc(db, 'categories', id), updates);
+  },
+
   // --- PRODUCTS ---
   getProducts: async (): Promise<Product[]> => {
     const snapshot = await getDocs(collection(db, 'products'));
@@ -96,3 +108,4 @@ export const StorageService = {
     await deleteDoc(doc(db, 'transactions', id));
   }
 };
+
