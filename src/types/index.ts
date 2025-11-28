@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 // src/types/index.ts
 
+=======
+>>>>>>> c74850c3bb003bf06cbd032ac125b4d73c7e7b77
 export interface User {
   id: string;
   username: string;
@@ -68,4 +71,8 @@ export interface DashboardStats {
   lowStockItems: number;
   totalValue: number;
   recentTransactions: number;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> c74850c3bb003bf06cbd032ac125b4d73c7e7b77
