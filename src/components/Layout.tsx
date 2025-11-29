@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { StorageService } from "@/lib/storage";
 import {
@@ -31,22 +31,77 @@ const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const [user, setUser] = useState(StorageService.getCurrentUser());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Low Stock Notification State
+  
+  // Notification State
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
 
+  // ✅ LOGOUT FUNCTION (Wrapped in useCallback so we can use it in useEffect)
+  const performLogout = useCallback(async (isAuto = false) => {
+    await StorageService.logout();
+    if (isAuto) {
+      toast.error("Session expired due to inactivity");
+    } else {
+      toast.success("Logged out successfully");
+    }
+    navigate("/");
+  }, [navigate]);
+
+  // ✅ AUTO-LOGOUT LOGIC (1 Minute Timer)
   useEffect(() => {
-    // ✅ Fix: Wrap database calls in an async function
+    // Only run if user is logged in
+    if (!user) return;
+
+    // 1 Minute in milliseconds (Change this to 5 * 60 * 1000 for 5 mins)
+    const TIMEOUT_DURATION = 60 * 5000; 
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      // Clear existing timer
+      if (timeoutId) clearTimeout(timeoutId);
+      // Set new timer
+      timeoutId = setTimeout(() => {
+        performLogout(true); // True means it was an auto-logout
+      }, TIMEOUT_DURATION);
+    };
+
+    // Events that count as "Activity"
+    const events = [
+      "mousedown",
+      "mousemove",
+      "keydown",
+      "scroll",
+      "touchstart",
+    ];
+
+    // Attach listeners
+    events.forEach((event) => {
+      document.addEventListener(event, resetTimer);
+    });
+
+    // Start the timer immediately when component mounts
+    resetTimer();
+
+    // Cleanup: Remove listeners when component unmounts or user logs out
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      events.forEach((event) => {
+        document.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [user, performLogout]);
+
+  // --- EXISTING LOGIC ---
+
+  useEffect(() => {
     const initLayout = async () => {
       const currentUser = StorageService.getCurrentUser();
       if (!currentUser) {
         navigate("/");
         return;
-      } 
+      }
       setUser(currentUser);
       setIsMobileMenuOpen(false);
 
-      // ✅ Fix: Await the products call
       try {
         const products = await StorageService.getProducts();
         const lowStock = products.filter(
@@ -59,14 +114,7 @@ const Layout = ({ children }: LayoutProps) => {
     };
 
     initLayout();
-  }, [navigate, location]); 
-
-  // ✅ Fix: Logout should be async
-  const handleLogout = async () => {
-    await StorageService.logout();
-    toast.success("Logged out successfully");
-    navigate("/");
-  };
+  }, [navigate, location]);
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -137,7 +185,7 @@ const Layout = ({ children }: LayoutProps) => {
           <Button
             variant="outline"
             className="w-full justify-start gap-3 border-primary/20 hover:bg-destructive hover:text-destructive-foreground"
-            onClick={handleLogout}
+            onClick={() => performLogout(false)} // Call the manual logout
           >
             <LogOut className="h-4 w-4" />
             Logout
@@ -156,7 +204,6 @@ const Layout = ({ children }: LayoutProps) => {
         {/* Top Header Bar */}
         <header className="sticky top-0 z-30 h-16 bg-background/95 backdrop-blur border-b border-border flex items-center justify-between px-4 md:px-8">
           <div className="flex items-center">
-            {/* Hamburger: Mobile Only */}
             <Button
               variant="ghost"
               size="icon"
@@ -171,7 +218,6 @@ const Layout = ({ children }: LayoutProps) => {
             </h1>
           </div>
 
-          {/* Notifications */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
@@ -223,7 +269,6 @@ const Layout = ({ children }: LayoutProps) => {
           </Popover>
         </header>
 
-        {/* Page Content */}
         <div className="flex-1 p-4 md:p-8 overflow-x-hidden">{children}</div>
       </main>
     </div>
