@@ -33,7 +33,7 @@ const Login = () => {
     if (!loginEmail.includes("@")) {
       if (loginEmail.toLowerCase() === "admin") {
         // I used the email from your screenshot. You can change this to any email you want "admin" to link to.
-        loginEmail = "ram05cembrano@gmail.com"; 
+        loginEmail = "admin@gmail.com"; 
       } else {
         // Optional: For other usernames, you could append a fake domain
         // loginEmail = `${loginEmail}@dtl.com`;
@@ -91,7 +91,7 @@ const Login = () => {
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
-                    type="text" // ✅ CHANGED: 'email' -> 'text' (Allows "admin" without error)
+                    type="text" // 
                     placeholder="Enter email or 'admin'" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)} 
