@@ -1,5 +1,14 @@
 import { 
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, getDoc 
+  collection, 
+  doc, 
+  getDocs, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDoc,
+  query,       // ✅ Added
+  where,       // ✅ Added
+  writeBatch   // ✅ Added
 } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, signOut 
@@ -21,7 +30,6 @@ export interface ReportHistory {
   data: any[];
 }
 
-// ✅ ADDED: Product History Interface for the Products Tab
 export interface ProductHistory {
   id: string;
   action: 'ADDED' | 'EDITED' | 'DELETED';
@@ -69,17 +77,13 @@ export const StorageService = {
     else localStorage.removeItem(STORAGE_KEYS.USER);
   },
 
-  // --- PRODUCT HISTORY LOGGING (Firebase Implementation) ---
-  
-  // 1. Get History List
+  // --- PRODUCT HISTORY LOGGING ---
   getProductHistory: async (): Promise<ProductHistory[]> => {
     const snapshot = await getDocs(collection(db, 'product_history'));
     const history = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ProductHistory));
-    // Sort newest first
     return history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   },
 
-  // 2. Log an Action (Internal Helper)
   logProductAction: async (
     action: 'ADDED' | 'EDITED' | 'DELETED', 
     type: 'Product' | 'Category', 
@@ -98,11 +102,9 @@ export const StorageService = {
         details,
         timestamp: new Date().toISOString(),
         user: user?.fullName || 'Unknown User',
-        previousData: previousData || null, // Firebase doesn't like undefined
+        previousData: previousData || null,
         newData: newData || null
       };
-      
-      // Save to 'product_history' collection
       await setDoc(doc(db, 'product_history', newLog.id), newLog);
     } catch (error) {
       console.error("Failed to log product history", error);
@@ -117,15 +119,12 @@ export const StorageService = {
 
   addCategory: async (category: Category) => {
     await setDoc(doc(db, 'categories', category.id), category);
-    // ✅ Log Action
     await StorageService.logProductAction('ADDED', 'Category', category.name, 'New category created', null, category);
   },
 
   deleteCategory: async (id: string) => {
     console.log(`Attempting to delete category with ID: ${id}`);
-    
     try {
-      // 1. Check if it exists first
       const docRef = doc(db, 'categories', id);
       const catDoc = await getDoc(docRef);
       
@@ -135,38 +134,50 @@ export const StorageService = {
       }
 
       const catData = catDoc.data() as Category;
-      console.log("Found category:", catData);
-
-      // 2. Perform Delete
       await deleteDoc(docRef);
-      console.log("✅ Successfully deleted from Firestore");
 
-      // 3. Log Action
       if (catData) {
         await StorageService.logProductAction('DELETED', 'Category', catData.name, 'Category removed', catData, null);
       }
     } catch (error: any) {
       console.error("🔥 DELETE FAILED:", error);
-      // Check for permission error
-      if (error.code === 'permission-denied') {
-        alert("Permission Denied: Check your Firestore Security Rules in the Firebase Console.");
-      }
-      throw error; // Re-throw so the UI knows it failed
+      throw error;
     }
   },
   
-    updateCategory: async (id: string, updates: Partial<Category>) => {
+  updateCategory: async (id: string, updates: Partial<Category>) => {
     const catRef = doc(db, 'categories', id);
     const oldDoc = await getDoc(catRef);
     const oldData = oldDoc.data();
 
+    // 1. Update the Category itself
     await updateDoc(catRef, updates);
 
-    // ✅ Log Action
+    // 2. Cascade Update: If name changed, update all products with this category
+    if (updates.name && oldData && updates.name !== oldData.name) {
+      try {
+        const productsRef = collection(db, 'products');
+        const q = query(productsRef, where("categoryId", "==", id));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const batch = writeBatch(db);
+          querySnapshot.forEach((doc) => {
+            batch.update(doc.ref, { categoryName: updates.name });
+          });
+          await batch.commit();
+          console.log(`Updated category name for ${querySnapshot.size} products.`);
+        }
+      } catch (err) {
+        console.error("Failed to cascade update category name to products", err);
+      }
+    }
+
     if (oldData) {
       await StorageService.logProductAction('EDITED', 'Category', oldData.name || 'Category', 'Updated details', oldData, { ...oldData, ...updates });
     }
   },
+
   // --- PRODUCTS ---
   getProducts: async (): Promise<Product[]> => {
     const snapshot = await getDocs(collection(db, 'products'));
@@ -174,10 +185,18 @@ export const StorageService = {
   },
 
   addProduct: async (product: Product) => {
+    // Fetch category name if not provided (safety check)
+    let finalProduct = { ...product };
+    if (!finalProduct.categoryName) {
+        const catDoc = await getDoc(doc(db, 'categories', product.categoryId));
+        if (catDoc.exists()) {
+            finalProduct.categoryName = catDoc.data().name;
+        }
+    }
+
     const ref = doc(db, 'products', product.id); 
-    await setDoc(ref, product);
-    // ✅ Log Action
-    await StorageService.logProductAction('ADDED', 'Product', product.name, `Added with ${product.quantity} ${product.unit}`, null, product);
+    await setDoc(ref, finalProduct);
+    await StorageService.logProductAction('ADDED', 'Product', finalProduct.name, `Added with ${finalProduct.quantity} ${finalProduct.unit}`, null, finalProduct);
   },
 
   updateProduct: async (id: string, updates: Partial<Product>, skipLog: boolean = false) => {
@@ -187,7 +206,6 @@ export const StorageService = {
 
     await updateDoc(ref, updates);
 
-    // ✅ Log Action (unless skipped, e.g. during transactions)
     if (oldData && !skipLog) {
       await StorageService.logProductAction('EDITED', 'Product', oldData.name, 'Product updated', oldData, { ...oldData, ...updates });
     }
@@ -200,7 +218,6 @@ export const StorageService = {
 
     await deleteDoc(ref);
 
-    // ✅ Log Action
     if (oldData) {
       await StorageService.logProductAction('DELETED', 'Product', oldData.name, `SKU: ${oldData.sku}`, oldData, null);
     }
