@@ -24,7 +24,6 @@ const Settings = () => {
     if (user) {
       const updates: Partial<User> = {
         username: formData.get('username') as string, 
-        email: formData.get('email') as string,
         FullName: formData.get('FullName') as string, 
       };
 
@@ -36,44 +35,6 @@ const Settings = () => {
         console.error("Failed to update profile:", error);
         toast.error('Failed to update profile');
       }
-    }
-  };
-
-  // --- 2. Change Password Handler (THE MISSING PIECE) ---
-  const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const currentPassword = formData.get('currentPassword') as string;
-    const newPassword = formData.get('newPassword') as string;
-    const confirmPassword = formData.get('confirmPassword') as string;
-
-    if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Call the storage service function we fixed earlier
-      await StorageService.changePassword(currentPassword, newPassword);
-      toast.success('Password changed successfully');
-      (e.target as HTMLFormElement).reset();
-    } catch (error: any) {
-      console.error("Failed to change password:", error);
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-        toast.error('Current password is incorrect');
-      } else if (error.code === 'auth/requires-recent-login') {
-        toast.error('Please log out and log in again to change password');
-      } else {
-        toast.error('Failed to change password: ' + error.message);
-      }
-    } finally {
-      setIsLoading(false);
     }
   };
 
