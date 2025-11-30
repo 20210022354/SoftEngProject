@@ -133,7 +133,7 @@ export const StorageService = {
         name,
         details,
         timestamp: new Date().toISOString(),
-        user: user?.username || 'Unknown User',
+        user: user.FullName || 'Unknown User',
         previousData: previousData || null,
         newData: newData || null
       };
