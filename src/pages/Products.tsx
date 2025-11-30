@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { StorageService, ProductHistory } from "@/lib/storage";
+import { StorageService} from "@/lib/storage";
+import { ProductHistory } from "@/types/index";
 import { Product, Category } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

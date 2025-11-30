@@ -15,54 +15,40 @@ import { toast } from "sonner";
 import { Lock, User } from "lucide-react";
 
 const Login = () => {
-  // --- STATE ---
-  const [email, setEmail] = useState(""); 
+  // Use a generic name for the state since it can be email OR username
+  const [identifier, setIdentifier] = useState(""); 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // --- HANDLER ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    let loginEmail = email;
-
-    // ✅ FIX: Handle "Username" Login
-    // If the input is just "admin" (no @ symbol), we map it to your real email.
-    if (!loginEmail.includes("@")) {
-      if (loginEmail.toLowerCase() === "admin") {
-        // I used the email from your screenshot. You can change this to any email you want "admin" to link to.
-        loginEmail = "admin@gmail.com"; 
-      } else {
-        // Optional: For other usernames, you could append a fake domain
-        // loginEmail = `${loginEmail}@dtl.com`;
-      }
-    }
-
     try {
-      // We send the mapped email (ram05...) to Firebase, but the user only typed "admin"
-      const user = await StorageService.login(loginEmail, password);
+      // ✅ SIMPLIFIED: Just pass the input directly.
+      // The StorageService.login function now handles the "Email vs Username" check internally.
+      const user = await StorageService.login(identifier, password);
 
       if (user) {
         toast.success("Welcome to DTL Inventory System");
-        navigate("/dashboard");
+        navigate("/products");
       } else {
-        toast.error("Invalid credentials.");
+        // This handles incorrect password OR incorrect username
+        toast.error("Invalid username/email or password.");
       }
     } catch (error) {
-      console.error("Login failed", error);
-      toast.error("Login failed. Check console for details.");
+      console.error("Login error:", error);
+      toast.error("An unexpected error occurred during login.");
     } finally {
       setLoading(false);
     }
   };
   
-  // --- RENDER ---
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-dark p-4">
       <div className="w-full max-w-md">
-        {/* Logo section */}
+        {/* Logo Section */}
         <div className="text-center mb-8 flex flex-col items-center">
           <img
             src="/dtl.png"
@@ -76,7 +62,7 @@ const Login = () => {
 
         <Card className="border-primary/20 shadow-glow-red">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
+            <CardTitle className="text-2xl text-center">Login</CardTitle>
             <CardDescription className="text-center">
               Enter your credentials to access the system
             </CardDescription>
@@ -84,17 +70,17 @@ const Login = () => {
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               
-              {/* === USERNAME/EMAIL INPUT === */}
+              {/* === IDENTIFIER INPUT (Email or Username) === */}
               <div className="space-y-2">
-                <Label htmlFor="email">Email or Username</Label>
+                <Label htmlFor="identifier">Email or Username</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="email"
-                    type="text" // 
-                    placeholder="Enter email or 'admin'" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)} 
+                    id="identifier"
+                    type="text" // ✅ Must be 'text' to allow usernames (no @ required)
+                    placeholder="Enter email or username" 
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)} 
                     className="pl-10 bg-secondary border-primary/20 focus:border-primary"
                     required
                   />
@@ -118,7 +104,6 @@ const Login = () => {
                 </div>
               </div>
 
-              {/* === SUBMIT BUTTON === */}
               <Button
                 type="submit"
                 className="w-full bg-gradient-red hover:opacity-90 transition-all glow-red"

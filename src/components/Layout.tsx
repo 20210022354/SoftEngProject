@@ -178,7 +178,7 @@ const Layout = ({ children }: LayoutProps) => {
         <div className="p-4 border-t border-sidebar-border space-y-3">
           <div className="px-4 py-2">
             <p className="text-sm font-medium text-foreground truncate">
-              {user?.fullName}
+              {user?.FullName}
             </p>
             <p className="text-xs text-muted-foreground">{user?.role}</p>
           </div>

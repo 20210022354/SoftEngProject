@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 // Ensure ReportHistory is imported from storage
-import { StorageService, ReportHistory } from "@/lib/storage";
+import { StorageService } from "@/lib/storage";
+import {ReportHistory } from "@/types/index";
 import { Product, StockTransaction } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,7 +156,7 @@ const Reports = () => {
         id: Date.now().toString(),
         title,
         generatedDate: new Date().toISOString(),
-        generatedBy: user?.fullName || "Unknown User",
+        generatedBy: user?.FullName || "Unknown User",
         recordCount: data.length,
         status: "Completed",
         data: data,

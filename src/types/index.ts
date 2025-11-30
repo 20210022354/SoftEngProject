@@ -1,11 +1,11 @@
 export interface User {
   id: string;
-  username: string;
+  FullName: string;
+  createdAt: string;
   email: string;
-  fullName: string;
   role: string;
   status: string;
-  createdAt: string;
+  username: string;
 }
 
 export interface Category {
@@ -66,4 +66,26 @@ export interface DashboardStats {
   lowStockItems: number;
   totalValue: number;
   recentTransactions: number;
+}
+
+export interface ReportHistory {
+  id: string;
+  title: string;
+  generatedDate: string;
+  generatedBy: string;
+  recordCount: number;
+  status: string;
+  data: any[];
+}
+
+export interface ProductHistory {
+  id: string;
+  action: 'ADDED' | 'EDITED' | 'DELETED';
+  type: 'Product' | 'Category';
+  name: string;
+  details: string;
+  timestamp: string;
+  user: string;
+  previousData?: any;
+  newData?: any;
 }

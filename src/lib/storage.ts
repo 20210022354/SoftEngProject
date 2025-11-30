@@ -11,42 +11,63 @@ import {
   writeBatch   // Needed for Atomic Transactions
 } from 'firebase/firestore';
 import { 
-  signInWithEmailAndPassword, signOut 
+  signInWithEmailAndPassword, signOut,   sendPasswordResetEmail, // Need this for password reset
+  updatePassword,         // Need this for changing password
+  EmailAuthProvider,      // Need this for re-authentication
+  reauthenticateWithCredential // Need this for re-authentication
 } from 'firebase/auth';
 import { db, auth } from "./firebase"; 
-import { Product, StockTransaction, Category, User } from '@/types';
+import { Product, StockTransaction, Category, User, ReportHistory, ProductHistory } from '@/types';
 
 const STORAGE_KEYS = { USER: 'dtl_user' };
 
-// --- INTERFACES ---
 
-export interface ReportHistory {
-  id: string;
-  title: string;
-  generatedDate: string;
-  generatedBy: string;
-  recordCount: number;
-  status: string;
-  data: any[];
-}
-
-export interface ProductHistory {
-  id: string;
-  action: 'ADDED' | 'EDITED' | 'DELETED';
-  type: 'Product' | 'Category';
-  name: string;
-  details: string;
-  timestamp: string;
-  user: string;
-  previousData?: any;
-  newData?: any;
-}
 
 export const StorageService = {
   // --- AUTH ---
-  login: async (email: string, password: string): Promise<User | null> => {
+  // ✅ 1. NEW HELPER FUNCTION GOES HERE
+  findUserByIdentifier: async (identifier: string): Promise<string | null> => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const usersRef = collection(db, 'users');
+      
+      // Check 1: Is it a Username?
+      const usernameQuery = query(usersRef, where("username", "==", identifier));
+      const usernameSnapshot = await getDocs(usernameQuery);
+      if (!usernameSnapshot.empty) {
+        return usernameSnapshot.docs[0].data().email;
+      }
+
+      // Check 2: Is it a Full Name? (Optional, if you want this feature)
+      // const nameQuery = query(usersRef, where("fullName", "==", identifier));
+      // const nameSnapshot = await getDocs(nameQuery);
+      // if (!nameSnapshot.empty) {
+      //   return nameSnapshot.docs[0].data().email;
+      // }
+
+      return null; // Not found
+    } catch (error) {
+      console.error("Error searching for user:", error);
+      return null;
+    }
+  },
+
+  // ✅ 2. UPDATED LOGIN FUNCTION
+  login: async (identifier: string, password: string): Promise<User | null> => {
+    try {
+      let emailToLogin = identifier;
+
+      // Check if input is NOT an email (assume it's a username/name)
+      if (!identifier.includes('@')) {
+        const foundEmail = await StorageService.findUserByIdentifier(identifier);
+        if (foundEmail) {
+          emailToLogin = foundEmail;
+        } else {
+          console.error("Username not found");
+          return null; 
+        }
+      }
+
+      const userCredential = await signInWithEmailAndPassword(auth, emailToLogin, password);
       const userDocRef = doc(db, 'users', userCredential.user.uid);
       const userDoc = await getDoc(userDocRef);
 
@@ -77,6 +98,17 @@ export const StorageService = {
     else localStorage.removeItem(STORAGE_KEYS.USER);
   },
 
+  updateUser: async (userId: string, updates: Partial<User>) => {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, updates);
+    
+    const currentUser = StorageService.getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      const updatedUser = { ...currentUser, ...updates };
+      StorageService.setCurrentUser(updatedUser);
+    }
+  },
+
   // --- PRODUCT HISTORY LOGGING ---
   getProductHistory: async (): Promise<ProductHistory[]> => {
     const snapshot = await getDocs(collection(db, 'product_history'));
@@ -101,7 +133,7 @@ export const StorageService = {
         name,
         details,
         timestamp: new Date().toISOString(),
-        user: user?.fullName || 'Unknown User',
+        user: user?.username || 'Unknown User',
         previousData: previousData || null,
         newData: newData || null
       };
@@ -317,5 +349,23 @@ export const StorageService = {
 
   addReportHistory: async (report: ReportHistory) => {
     await setDoc(doc(db, 'report_history', report.id), report);
-  }
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
+    const user = auth.currentUser;
+    if (!user || !user.email) throw new Error("No user logged in");
+
+    // 1. Create credential from current password
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    
+    // 2. Re-authenticate (Required security step before changing password)
+    await reauthenticateWithCredential(user, credential);
+
+    // 3. Update Password
+    await updatePassword(user, newPassword);
+  },
+
+  sendPasswordReset: async (email: string): Promise<void> => {
+      await sendPasswordResetEmail(auth, email);        
+  },
 };

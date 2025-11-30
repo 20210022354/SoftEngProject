@@ -6,58 +6,88 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { UserCircle, Lock } from 'lucide-react';
+import { UserCircle, Lock, Mail } from 'lucide-react';
 
 const Settings = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setUser(StorageService.getCurrentUser());
   }, []);
 
-  const handleUpdateProfile = (e: React.FormEvent<HTMLFormElement>) => {
+  // --- 1. Update Profile Handler ---
+  const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
     if (user) {
-      const updatedUser = {
-        ...user,
-        fullName: formData.get('fullName') as string,
+      const updates: Partial<User> = {
+        username: formData.get('username') as string, 
         email: formData.get('email') as string,
+        FullName: formData.get('FullName') as string, 
       };
 
-      StorageService.setCurrentUser(updatedUser);
-      setUser(updatedUser);
-      toast.success('Profile updated successfully');
+      try {
+        await StorageService.updateUser(user.id, updates);
+        setUser({ ...user, ...updates } as User);
+        toast.success('Profile updated successfully');
+      } catch (error) {
+        console.error("Failed to update profile:", error);
+        toast.error('Failed to update profile');
+      }
     }
   };
 
-  const handleChangePassword = (e: React.FormEvent<HTMLFormElement>) => {
+  // --- 2. Change Password Handler (THE MISSING PIECE) ---
+  const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const currentPassword = formData.get('currentPassword') as string;
     const newPassword = formData.get('newPassword') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
-    if (currentPassword !== '123') {
-      toast.error('Current password is incorrect');
-      return;
-    }
-
     if (newPassword !== confirmPassword) {
       toast.error('New passwords do not match');
       return;
     }
 
-    if (newPassword.length < 3) {
-      toast.error('Password must be at least 3 characters');
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
-    toast.success('Password changed successfully (demo mode)');
-    (e.target as HTMLFormElement).reset();
+    setIsLoading(true);
+    try {
+      // Call the storage service function we fixed earlier
+      await StorageService.changePassword(currentPassword, newPassword);
+      toast.success('Password changed successfully');
+      (e.target as HTMLFormElement).reset();
+    } catch (error: any) {
+      console.error("Failed to change password:", error);
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        toast.error('Current password is incorrect');
+      } else if (error.code === 'auth/requires-recent-login') {
+        toast.error('Please log out and log in again to change password');
+      } else {
+        toast.error('Failed to change password: ' + error.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // --- 3. Send Reset Email Handler ---
+  const handleSendResetEmail = async () => {
+    if (!user?.email) return;
+    try {
+      await StorageService.sendPasswordReset(user.email);
+      toast.success(`Password reset email sent to ${user.email}`);
+    } catch (error: any) {
+      toast.error("Failed to send email: " + error.message);
+    }
+  };
+  
   if (!user) return null;
 
   return (
@@ -80,12 +110,24 @@ const Settings = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleUpdateProfile} className="space-y-4">
+            
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                name="username"
+                defaultValue={user.username}
+                required
+                className="bg-secondary border-primary/20"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <Input
-                id="fullName"
-                name="fullName"
-                defaultValue={user.fullName}
+                id="FullName"
+                name="FullName"
+                defaultValue={user.FullName} 
                 required
                 className="bg-secondary border-primary/20"
               />
@@ -96,23 +138,10 @@ const Settings = () => {
               <Input
                 id="email"
                 name="email"
-                type="email"
                 defaultValue={user.email}
-                required
+                disabled
                 className="bg-secondary border-primary/20"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                name="username"
-                value={user.username}
-                disabled
-                className="bg-muted border-primary/20"
-              />
-              <p className="text-xs text-muted-foreground">Username cannot be changed</p>
             </div>
 
             <div className="space-y-2">
@@ -144,45 +173,19 @@ const Settings = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <Input
-                id="currentPassword"
-                name="currentPassword"
-                type="password"
-                required
-                className="bg-secondary border-primary/20"
-              />
-            </div>
+        <CardContent className="space-y-6">
+          {/* ✅ FIX: Use handleChangePassword here, NOT handleSendResetEmail */}
 
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input
-                id="newPassword"
-                name="newPassword"
-                type="password"
-                required
-                className="bg-secondary border-primary/20"
-              />
-            </div>
+          {/* Reset Email Button */}
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={handleSendResetEmail}
+            className="w-full"
+          >
+            <Mail className="mr-2 h-4 w-4" /> Send Password Reset Link
+          </Button>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                className="bg-secondary border-primary/20"
-              />
-            </div>
-
-            <Button type="submit" className="w-full bg-gradient-red">
-              Change Password
-            </Button>
-          </form>
         </CardContent>
       </Card>
 
