@@ -32,7 +32,7 @@ const Login = () => {
 
       if (user) {
         toast.success("Welcome to DTL Inventory System");
-        navigate("/products");
+        navigate("/dashboard");
       } else {
         // This handles incorrect password OR incorrect username
         toast.error("Invalid username/email or password.");
