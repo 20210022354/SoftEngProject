@@ -65,7 +65,7 @@ const Login = () => {
         {/* Logo section */}
         <div className="text-center mb-8 flex flex-col items-center">
           <img
-            src="/dtl1.png"
+            src="/dtl.png"
             alt="DTL Logo"
             className="w-28 h-28 object-contain mb-2"
           />

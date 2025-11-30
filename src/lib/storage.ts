@@ -6,9 +6,9 @@ import {
   updateDoc, 
   deleteDoc, 
   getDoc,
-  query,       // ✅ Added
-  where,       // ✅ Added
-  writeBatch   // ✅ Added
+  query,       // Needed for Cascade Update
+  where,       // Needed for Cascade Update
+  writeBatch   // Needed for Cascade Update
 } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, signOut 
@@ -154,6 +154,7 @@ export const StorageService = {
     await updateDoc(catRef, updates);
 
     // 2. Cascade Update: If name changed, update all products with this category
+    // This keeps your Embedded Data in sync!
     if (updates.name && oldData && updates.name !== oldData.name) {
       try {
         const productsRef = collection(db, 'products');
@@ -178,25 +179,37 @@ export const StorageService = {
     }
   },
 
-  // --- PRODUCTS ---
+  // --- PRODUCTS (Your Updated Logic) ---
   getProducts: async (): Promise<Product[]> => {
     const snapshot = await getDocs(collection(db, 'products'));
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Product));
   },
 
   addProduct: async (product: Product) => {
-    // Fetch category name if not provided (safety check)
+    // Safety Check: Ensure categoryName exists for Embedding
     let finalProduct = { ...product };
+    
+    // If the UI didn't pass the name, fetch it manually
     if (!finalProduct.categoryName) {
         const catDoc = await getDoc(doc(db, 'categories', product.categoryId));
         if (catDoc.exists()) {
             finalProduct.categoryName = catDoc.data().name;
+        } else {
+            finalProduct.categoryName = "Unknown Category";
         }
     }
 
     const ref = doc(db, 'products', product.id); 
     await setDoc(ref, finalProduct);
-    await StorageService.logProductAction('ADDED', 'Product', finalProduct.name, `Added with ${finalProduct.quantity} ${finalProduct.unit}`, null, finalProduct);
+    
+    await StorageService.logProductAction(
+      'ADDED', 
+      'Product', 
+      finalProduct.name, 
+      `Added with ${finalProduct.quantity} ${finalProduct.unit}`, 
+      null, 
+      finalProduct
+    );
   },
 
   updateProduct: async (id: string, updates: Partial<Product>, skipLog: boolean = false) => {
@@ -207,7 +220,14 @@ export const StorageService = {
     await updateDoc(ref, updates);
 
     if (oldData && !skipLog) {
-      await StorageService.logProductAction('EDITED', 'Product', oldData.name, 'Product updated', oldData, { ...oldData, ...updates });
+      await StorageService.logProductAction(
+        'EDITED', 
+        'Product', 
+        oldData.name, 
+        'Product updated', 
+        oldData, 
+        { ...oldData, ...updates }
+      );
     }
   },
 
@@ -219,7 +239,14 @@ export const StorageService = {
     await deleteDoc(ref);
 
     if (oldData) {
-      await StorageService.logProductAction('DELETED', 'Product', oldData.name, `SKU: ${oldData.sku}`, oldData, null);
+      await StorageService.logProductAction(
+        'DELETED', 
+        'Product', 
+        oldData.name, 
+        `SKU: ${oldData.sku}`, 
+        oldData, 
+        null
+      );
     }
   },
 
@@ -240,6 +267,21 @@ export const StorageService = {
 
   deleteTransaction: async (id: string) => {
     await deleteDoc(doc(db, 'transactions', id));
+  },
+
+  performStockTransaction: async (transaction: StockTransaction, newQuantity: number) => {
+    const batch = writeBatch(db);
+
+    // 1. Create reference for the new Transaction
+    const txRef = doc(db, 'transactions', transaction.id);
+    batch.set(txRef, transaction);
+
+    // 2. Create reference for the Product to update
+    const prodRef = doc(db, 'products', transaction.productId);
+    batch.update(prodRef, { quantity: newQuantity });
+
+    // 3. Commit both changes as one atomic unit
+    await batch.commit();
   },
 
   // --- REPORT HISTORY ---

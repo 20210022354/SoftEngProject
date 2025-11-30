@@ -47,23 +47,17 @@ const Transactions = () => {
 
   const loadData = async () => {
     try {
-      // ✅ ASYNC: Load both lists in parallel
       const [txs, prods] = await Promise.all([
         StorageService.getTransactions(),
         StorageService.getProducts(),
       ]);
 
-      // Enrich transactions with product names (in case product name changed)
       const enrichedTxs = txs.map((tx) => ({
         ...tx,
         productName:
           prods.find((p) => p.id === tx.productId)?.name || "Unknown Product",
       }));
 
-      // Sort by newest first? usually nice for transactions
-      // setTransactions(enrichedTxs.reverse()); 
-      // Note: StorageService.getTransactions already sorts by date, 
-      // but if you want visual reverse order (newest top), ensure it here.
       setTransactions(enrichedTxs);
       setProducts(prods);
     } catch (error) {
@@ -93,24 +87,15 @@ const Transactions = () => {
       return;
 
     try {
-      // 1. Revert Stock
       const product = products.find((p) => p.id === tx.productId);
       if (product) {
-        // Subtracting the transaction quantity reverses the action.
-        // If it was +10 (IN), we subtract 10.
-        // If it was -5 (OUT), we subtract -5 (which adds 5).
         const revertedQuantity = product.quantity - tx.quantity;
-
-        // ✅ ASYNC UPDATE
         await StorageService.updateProduct(product.id, {
           quantity: revertedQuantity,
         });
       }
 
-      // 2. Delete Transaction from Storage
-      // ✅ ASYNC DELETE
       await StorageService.deleteTransaction(tx.id);
-
       toast.success("Transaction deleted and stock reverted.");
       await loadData();
     } catch (error) {
@@ -142,102 +127,94 @@ const Transactions = () => {
       return;
     }
 
-    // Determine the signed quantity (negative for OUT)
     let signedQuantity = quantityInput;
     if (transactionType === "OUT") {
       signedQuantity = -quantityInput;
     }
 
-    // Logic for Updating Stock
     let finalStockQuantity = product.quantity;
 
     try {
       if (editingTransaction) {
         // --- EDIT MODE ---
-        // 1. Revert the OLD transaction first
         const oldProduct = products.find(
           (p) => p.id === editingTransaction.productId
         );
         if (oldProduct) {
-          // This is a temporary calculation of what stock WOULD be if we removed the old tx
           const stockWithoutOldTx =
             oldProduct.quantity - editingTransaction.quantity;
 
-          // 2. Apply NEW transaction
           if (oldProduct.id === productId) {
-            // Same product, just update the base
             finalStockQuantity = stockWithoutOldTx;
           } else {
-            // Product changed!
-            // A. Revert the old product immediately
             await StorageService.updateProduct(oldProduct.id, {
               quantity: stockWithoutOldTx,
             });
-            // B. Set base for new product
             finalStockQuantity = product.quantity;
           }
         }
       }
 
-      // Apply the NEW transaction logic
       if (transactionType === "ADJUSTMENT") {
-        // Calculate difference: Input - Base
-        // If editing same product, Base is stockWithoutOldTx. If new, Base is product.quantity
         const baseStock =
           editingTransaction && editingTransaction.productId === productId
             ? finalStockQuantity
             : product.quantity;
 
         signedQuantity = quantityInput - baseStock;
-        finalStockQuantity = quantityInput; // Direct set
+        finalStockQuantity = quantityInput;
       } else {
-        // IN or OUT
         finalStockQuantity += signedQuantity;
 
-        // Validation for OUT
         if (transactionType === "OUT" && finalStockQuantity < 0) {
           toast.error("Insufficient stock for this transaction");
           return;
         }
       }
 
-      // Prepare Data
+      // ✅ FIX: FALLBACK VALUES FOR ALL FIELDS
+      // Firestore crashes if you send 'undefined'. We use || "" or || 0 to be safe.
       const transactionData: StockTransaction = {
         id: editingTransaction ? editingTransaction.id : Date.now().toString(),
-        productId,
-        productName: product.name,
-        userId: user.id,
-        userName: user.fullName,
+        productId: productId || "",
+        productName: product.name || "Unknown Product",
+        userId: user.id || "unknown_user",
+        userName: user.fullName || "Unknown User",
         transactionType,
-        quantity: signedQuantity, // Store the change (+10 or -5)
-        reason,
+        quantity: signedQuantity || 0,
+        reason: reason || "", // Ensure this is not undefined
         transactionDate: editingTransaction
           ? editingTransaction.transactionDate
           : new Date().toISOString(),
       };
 
-      // Save Transaction
       if (editingTransaction) {
         await StorageService.updateTransaction(
           transactionData.id,
           transactionData
         );
+        await StorageService.updateProduct(productId, {
+            quantity: finalStockQuantity,
+        });
         toast.success("Transaction updated");
       } else {
-        await StorageService.addTransaction(transactionData);
+        // ✅ Call the safe function
+        await StorageService.performStockTransaction(transactionData, finalStockQuantity);
         toast.success(`Transaction recorded: ${transactionType}`);
       }
 
-      // Update Product Stock
-      await StorageService.updateProduct(productId, {
-        quantity: finalStockQuantity,
-      });
-
       await loadData();
       setIsDialogOpen(false);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to save transaction");
+    } catch (error: any) {
+      console.error("Transaction Error:", error);
+      // Detailed error logging
+      if (error.code === "permission-denied") {
+        toast.error("Permission denied. Check database rules.");
+      } else if (error.message && error.message.includes("undefined")) {
+        toast.error("Data Error: One of the fields is undefined.");
+      } else {
+        toast.error("Failed to save transaction.");
+      }
     }
   };
 
