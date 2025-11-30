@@ -230,7 +230,7 @@ const Reports = () => {
       Product: tx.productName,
       Type: tx.transactionType,
       Quantity: tx.quantity,
-      User: tx.userName,
+      User: tx.user,
       Reason: tx.reason || "N/A",
     }));
     saveAndDownload(report, "Transaction History Report");

@@ -138,6 +138,7 @@ const Settings = () => {
               <Input
                 id="email"
                 name="email"
+                type = "String"
                 defaultValue={user.email}
                 disabled
                 className="bg-secondary border-primary/20"

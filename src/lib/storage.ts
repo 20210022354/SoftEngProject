@@ -4,7 +4,8 @@ import {
   getDocs, 
   setDoc, 
   updateDoc, 
-  deleteDoc, 
+  deleteDoc,
+  orderBy, 
   getDoc,
   query,       // Needed for Cascade Update
   where,       // Needed for Cascade Update
@@ -367,5 +368,25 @@ export const StorageService = {
 
   sendPasswordReset: async (email: string): Promise<void> => {
       await sendPasswordResetEmail(auth, email);        
+  },
+
+  getTransactionsByDateRange: async (startDate: Date, endDate: Date): Promise<StockTransaction[]> => {
+    try {
+      const txRef = collection(db, 'transactions');
+      
+      // Firestore string comparison works for ISO dates (YYYY-MM-DD...)
+      const q = query(
+        txRef,
+        where("transactionDate", ">=", startDate.toISOString()),
+        where("transactionDate", "<=", endDate.toISOString()),
+        orderBy("transactionDate", "desc")
+      );
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as StockTransaction));
+    } catch (error) {
+      console.error("Error fetching range transactions:", error);
+      return [];
+    }
   },
 };

@@ -36,10 +36,13 @@ export interface StockTransaction {
   productId: string;
   productName?: string;
   userId: string;
-  userName?: string;
+  user?: string;
+  editedby?: string;
+  editedat?: string;
   transactionType: 'IN' | 'OUT' | 'ADJUSTMENT';
   quantity: number;
   reason?: string;
+  editreason?: string;
   transactionDate: string;
 }
 

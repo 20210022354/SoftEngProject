@@ -104,6 +104,10 @@ const Transactions = () => {
     }
   };
 
+  const currentUser = StorageService.getCurrentUser();
+  const editorName = currentUser?.FullName || "Unknown User";
+  const editValue = editorName; 
+
   const handleTransaction = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -114,7 +118,7 @@ const Transactions = () => {
       | "ADJUSTMENT";
     const quantityInput = parseInt(formData.get("quantity") as string);
     const reason = formData.get("reason") as string;
-
+    const editReasonInput = formData.get("editReason") as string;   
     const product = products.find((p) => p.id === productId);
     if (!product) {
       toast.error("Product not found");
@@ -153,6 +157,7 @@ const Transactions = () => {
             finalStockQuantity = product.quantity;
           }
         }
+        
       }
 
       if (transactionType === "ADJUSTMENT") {
@@ -174,19 +179,41 @@ const Transactions = () => {
 
       // ✅ FIX: FALLBACK VALUES FOR ALL FIELDS
       // Firestore crashes if you send 'undefined'. We use || "" or || 0 to be safe.
-      const transactionData: StockTransaction = {
-        id: editingTransaction ? editingTransaction.id : Date.now().toString(),
-        productId: productId || "",
-        productName: product.name || "Unknown Product",
-        userId: user.id || "unknown_user",
-        userName: user.fullName || "Unknown User",
-        transactionType,
-        quantity: signedQuantity || 0,
-        reason: reason || "", // Ensure this is not undefined
-        transactionDate: editingTransaction
-          ? editingTransaction.transactionDate
-          : new Date().toISOString(),
-      };
+        const baseTransaction = {
+            id: editingTransaction ? editingTransaction.id : Date.now().toString(),
+            productId,
+            productName: product.name || "Unknown Product",
+            
+            userId: editingTransaction ? editingTransaction.userId : (user.id || "unknown"),
+            user: editingTransaction ? editingTransaction.user : (user.FullName || "Unknown"),
+
+            transactionType,
+            quantity: signedQuantity,
+
+            // ✅ FIX: If editing, keep the OLD reason. If new, use the INPUT reason.
+            reason: editingTransaction ? (editingTransaction.reason || "") : (reason || ""),
+
+            transactionDate: editingTransaction
+              ? editingTransaction.transactionDate
+              : new Date().toISOString(),
+        };
+
+      // 2. Add Edit Fields ONLY if we are actually editing
+      // (This prevents sending "undefined" to Firestore, which causes the crash)
+      let transactionData: StockTransaction;
+
+      if (editingTransaction) {
+        transactionData = {
+          ...baseTransaction,
+          editedby: editValue,
+          editedat: new Date().toISOString(),
+          editreason: editReasonInput || "No reason provided",
+        };
+      } else {
+        // For new transactions, we just use the base object without the edited keys
+        transactionData = baseTransaction as StockTransaction;
+      }
+
 
       if (editingTransaction) {
         await StorageService.updateTransaction(
@@ -300,11 +327,13 @@ const Transactions = () => {
                       ? Math.abs(editingTransaction.quantity)
                       : ""
                   }
-                  required
+                  
                   className="bg-secondary border-primary/20"
                 />
               </div>
 
+                  {/* ✅ ONLY SHOW REASON IF IT IS A NEW TRANSACTION */}
+            {!editingTransaction && (
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <Label htmlFor="reason">Reason / Notes</Label>
@@ -329,7 +358,33 @@ const Transactions = () => {
                   onChange={(e) => setReasonInput(e.target.value)}
                 />
               </div>
+            )}
 
+             {/* ✅ PASTE YOUR CODE HERE (Between the Notes and the Buttons) */}
+
+            {editingTransaction && (
+
+              <div className="space-y-2">
+
+                <Label htmlFor="editReason" className="text-amber-500">Reason for Edit</Label>
+
+                <Input
+
+                  id="editReason"
+
+                  name="editReason"
+
+                  placeholder="Why are you changing this?"
+
+                  required
+
+                  className="bg-secondary border-amber-500/30 focus:border-amber-500"
+
+                />
+
+              </div>
+
+            )}
               <div className="flex gap-3">
                 <Button type="submit" className="flex-1 bg-gradient-red">
                   {editingTransaction
@@ -397,11 +452,21 @@ const Transactions = () => {
                         {transaction.transactionType}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(transaction.transactionDate).toLocaleString()}
-                      {transaction.reason && ` • ${transaction.reason}`}
+                    {/* Original Creation Details */}
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(transaction.transactionDate).toLocaleString()}
+                    {transaction.user && ` • By: ${transaction.user}`}
+                    {transaction.reason && ` • Reason: ${transaction.reason}`}
+                  </p>
+
+                  {/* ✅ ADD THIS BLOCK BELOW */}
+                  {transaction.editedby && transaction.editedat && (
+                    <p className="text-xs text-amber-500/90 mt-1 flex items-center gap-1">
+                      <Edit className="h-3 w-3" /> 
+                      {new Date(transaction.editedat).toLocaleString()} • Edited by {transaction.editedby} • Reason: {transaction.editreason}
                     </p>
-                  </div>
+                  )}
+                </div>
 
                   <div className="text-right flex items-center gap-4">
                     <p
