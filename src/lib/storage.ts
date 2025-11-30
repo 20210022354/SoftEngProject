@@ -8,7 +8,7 @@ import {
   getDoc,
   query,       // Needed for Cascade Update
   where,       // Needed for Cascade Update
-  writeBatch   // Needed for Cascade Update
+  writeBatch   // Needed for Atomic Transactions
 } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, signOut 
@@ -125,20 +125,45 @@ export const StorageService = {
   deleteCategory: async (id: string) => {
     console.log(`Attempting to delete category with ID: ${id}`);
     try {
-      const docRef = doc(db, 'categories', id);
-      const catDoc = await getDoc(docRef);
+      // 1. Check if category exists first (to get name for logs)
+      const catRef = doc(db, 'categories', id);
+      const catDoc = await getDoc(catRef);
       
       if (!catDoc.exists()) {
-        console.error("❌ Document does not exist in Firestore!");
-        throw new Error("Category not found in database");
+        throw new Error("Category not found");
       }
-
       const catData = catDoc.data() as Category;
-      await deleteDoc(docRef);
 
-      if (catData) {
-        await StorageService.logProductAction('DELETED', 'Category', catData.name, 'Category removed', catData, null);
-      }
+      // 2. Find all products in this category
+      const productsRef = collection(db, 'products');
+      const q = query(productsRef, where("categoryId", "==", id));
+      const productsSnapshot = await getDocs(q);
+
+      // 3. Create a Batch to delete everything at once
+      const batch = writeBatch(db);
+
+      // Delete the Category
+      batch.delete(catRef);
+
+      // Delete all the Products
+      productsSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      // 4. Commit the Batch
+      await batch.commit();
+      console.log(`Deleted category and ${productsSnapshot.size} associated products.`);
+
+      // 5. Log the action
+      await StorageService.logProductAction(
+        'DELETED', 
+        'Category', 
+        catData.name, 
+        `Category removed along with ${productsSnapshot.size} products`, 
+        catData, 
+        null
+      );
+
     } catch (error: any) {
       console.error("🔥 DELETE FAILED:", error);
       throw error;
@@ -154,7 +179,6 @@ export const StorageService = {
     await updateDoc(catRef, updates);
 
     // 2. Cascade Update: If name changed, update all products with this category
-    // This keeps your Embedded Data in sync!
     if (updates.name && oldData && updates.name !== oldData.name) {
       try {
         const productsRef = collection(db, 'products');
@@ -167,7 +191,6 @@ export const StorageService = {
             batch.update(doc.ref, { categoryName: updates.name });
           });
           await batch.commit();
-          console.log(`Updated category name for ${querySnapshot.size} products.`);
         }
       } catch (err) {
         console.error("Failed to cascade update category name to products", err);
@@ -179,7 +202,7 @@ export const StorageService = {
     }
   },
 
-  // --- PRODUCTS (Your Updated Logic) ---
+  // --- PRODUCTS ---
   getProducts: async (): Promise<Product[]> => {
     const snapshot = await getDocs(collection(db, 'products'));
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Product));
@@ -269,6 +292,7 @@ export const StorageService = {
     await deleteDoc(doc(db, 'transactions', id));
   },
 
+  // ✅ NEW: Atomic Transaction (Safe)
   performStockTransaction: async (transaction: StockTransaction, newQuantity: number) => {
     const batch = writeBatch(db);
 
