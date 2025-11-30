@@ -10,7 +10,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ArrowDown, ArrowUp, Settings, Edit, Trash2 } from "lucide-react";
+import { 
+  Plus, 
+  ArrowDown, 
+  ArrowUp, 
+  Settings, 
+  Edit, 
+  Trash2, 
+  Search, 
+  X, 
+  Filter 
+} from "lucide-react"; // ✅ Added Search, X, Filter icons
 import {
   Dialog,
   DialogContent,
@@ -41,6 +51,11 @@ const Transactions = () => {
     useState<StockTransaction | null>(null);
   const [reasonInput, setReasonInput] = useState("");
 
+  // ✅ NEW: Filter States
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "IN" | "OUT" | "ADJUSTMENT">("ALL");
+  const [dateFilter, setDateFilter] = useState("");
+
   useEffect(() => {
     loadData();
   }, []);
@@ -65,6 +80,25 @@ const Transactions = () => {
       toast.error("Failed to load transaction data");
     }
   };
+
+  // ✅ NEW: Filter Logic
+const filteredTransactions = transactions.filter((tx) => {
+    // 1. Search (Product Name ONLY)
+    // We removed the checks for (tx.user) and (tx.reason)
+    const matchesSearch = tx.productName.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 2. Type Filter
+    const matchesType = typeFilter === "ALL" || tx.transactionType === typeFilter;
+
+    // 3. Date Filter
+    let matchesDate = true;
+    if (dateFilter) {
+      const txDate = new Date(tx.transactionDate).toISOString().split("T")[0];
+      matchesDate = txDate === dateFilter;
+    }
+
+    return matchesSearch && matchesType && matchesDate;
+  });
 
   const openNewTransaction = () => {
     setEditingTransaction(null);
@@ -140,7 +174,6 @@ const Transactions = () => {
 
     try {
       if (editingTransaction) {
-        // --- EDIT MODE ---
         const oldProduct = products.find(
           (p) => p.id === editingTransaction.productId
         );
@@ -157,7 +190,6 @@ const Transactions = () => {
             finalStockQuantity = product.quantity;
           }
         }
-        
       }
 
       if (transactionType === "ADJUSTMENT") {
@@ -177,29 +209,20 @@ const Transactions = () => {
         }
       }
 
-      // ✅ FIX: FALLBACK VALUES FOR ALL FIELDS
-      // Firestore crashes if you send 'undefined'. We use || "" or || 0 to be safe.
-        const baseTransaction = {
-            id: editingTransaction ? editingTransaction.id : Date.now().toString(),
-            productId,
-            productName: product.name || "Unknown Product",
-            
-            userId: editingTransaction ? editingTransaction.userId : (user.id || "unknown"),
-            user: editingTransaction ? editingTransaction.user : (user.FullName || "Unknown"),
+      const baseTransaction = {
+          id: editingTransaction ? editingTransaction.id : Date.now().toString(),
+          productId,
+          productName: product.name || "Unknown Product",
+          userId: editingTransaction ? editingTransaction.userId : (user.id || "unknown"),
+          user: editingTransaction ? editingTransaction.user : (user.FullName || "Unknown"),
+          transactionType,
+          quantity: signedQuantity,
+          reason: editingTransaction ? (editingTransaction.reason || "") : (reason || ""),
+          transactionDate: editingTransaction
+            ? editingTransaction.transactionDate
+            : new Date().toISOString(),
+      };
 
-            transactionType,
-            quantity: signedQuantity,
-
-            // ✅ FIX: If editing, keep the OLD reason. If new, use the INPUT reason.
-            reason: editingTransaction ? (editingTransaction.reason || "") : (reason || ""),
-
-            transactionDate: editingTransaction
-              ? editingTransaction.transactionDate
-              : new Date().toISOString(),
-        };
-
-      // 2. Add Edit Fields ONLY if we are actually editing
-      // (This prevents sending "undefined" to Firestore, which causes the crash)
       let transactionData: StockTransaction;
 
       if (editingTransaction) {
@@ -210,10 +233,8 @@ const Transactions = () => {
           editreason: editReasonInput || "No reason provided",
         };
       } else {
-        // For new transactions, we just use the base object without the edited keys
         transactionData = baseTransaction as StockTransaction;
       }
-
 
       if (editingTransaction) {
         await StorageService.updateTransaction(
@@ -225,7 +246,6 @@ const Transactions = () => {
         });
         toast.success("Transaction updated");
       } else {
-        // ✅ Call the safe function
         await StorageService.performStockTransaction(transactionData, finalStockQuantity);
         toast.success(`Transaction recorded: ${transactionType}`);
       }
@@ -234,7 +254,6 @@ const Transactions = () => {
       setIsDialogOpen(false);
     } catch (error: any) {
       console.error("Transaction Error:", error);
-      // Detailed error logging
       if (error.code === "permission-denied") {
         toast.error("Permission denied. Check database rules.");
       } else if (error.message && error.message.includes("undefined")) {
@@ -332,7 +351,6 @@ const Transactions = () => {
                 />
               </div>
 
-                  {/* ✅ ONLY SHOW REASON IF IT IS A NEW TRANSACTION */}
             {!editingTransaction && (
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -360,30 +378,17 @@ const Transactions = () => {
               </div>
             )}
 
-             {/* ✅ PASTE YOUR CODE HERE (Between the Notes and the Buttons) */}
-
             {editingTransaction && (
-
               <div className="space-y-2">
-
                 <Label htmlFor="editReason" className="text-amber-500">Reason for Edit</Label>
-
                 <Input
-
                   id="editReason"
-
                   name="editReason"
-
                   placeholder="Why are you changing this?"
-
                   required
-
                   className="bg-secondary border-amber-500/30 focus:border-amber-500"
-
                 />
-
               </div>
-
             )}
               <div className="flex gap-3">
                 <Button type="submit" className="flex-1 bg-gradient-red">
@@ -408,13 +413,71 @@ const Transactions = () => {
       {/* Transactions List */}
       <Card className="border-primary/20">
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-          <CardDescription>All stock movements and adjustments</CardDescription>
+          {/* ✅ UPDATED HEADER WITH SEARCH & FILTERS */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <CardTitle>Transaction History</CardTitle>
+              <CardDescription>All stock movements and adjustments</CardDescription>
+            </div>
+            
+            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              {/* Search Bar */}
+              <div className="relative w-full md:w-48">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 bg-secondary border-primary/20 h-10"
+                />
+              </div>
+
+              {/* Type Filter */}
+              <div className="relative w-full md:w-36">
+                <Select 
+                  value={typeFilter} 
+                  onValueChange={(val: any) => setTypeFilter(val)}
+                >
+                  <SelectTrigger className="bg-secondary border-primary/20 h-10 pl-9">
+                     <Filter className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Types</SelectItem>
+                    <SelectItem value="IN">Stock In</SelectItem>
+                    <SelectItem value="OUT">Stock Out</SelectItem>
+                    <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Filter */}
+              <div className="relative w-full md:w-40">
+                <Input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="bg-secondary border-primary/20 h-10"
+                />
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter("")}
+                    className="absolute right-8 top-3 text-muted-foreground hover:text-destructive"
+                    title="Clear Date"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </CardHeader>
+
         <CardContent>
-          {transactions.length > 0 ? (
+          {/* ✅ RENDER FILTERED TRANSACTIONS */}
+          {filteredTransactions.length > 0 ? (
             <div className="space-y-3">
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <div
                   key={transaction.id}
                   className="flex items-center gap-4 p-4 bg-secondary rounded-lg border border-border hover:border-primary/50 transition-colors group"
@@ -452,14 +515,12 @@ const Transactions = () => {
                         {transaction.transactionType}
                       </Badge>
                     </div>
-                    {/* Original Creation Details */}
                   <p className="text-sm text-muted-foreground">
                     {new Date(transaction.transactionDate).toLocaleString()}
                     {transaction.user && ` • By: ${transaction.user}`}
                     {transaction.reason && ` • Reason: ${transaction.reason}`}
                   </p>
 
-                  {/* ✅ ADD THIS BLOCK BELOW */}
                   {transaction.editedby && transaction.editedat && (
                     <p className="text-xs text-amber-500/90 mt-1 flex items-center gap-1">
                       <Edit className="h-3 w-3" /> 
@@ -482,7 +543,6 @@ const Transactions = () => {
                       {transaction.quantity}
                     </p>
 
-                    {/* Edit & Delete Actions */}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         size="icon"
@@ -508,7 +568,11 @@ const Transactions = () => {
           ) : (
             <div className="py-12 text-center">
               <p className="text-muted-foreground">
-                No transactions recorded yet
+                {/* Check if main list is empty or just the filter */}
+                {transactions.length === 0 
+                  ? "No transactions recorded yet" 
+                  : "No transactions found matching your filters"
+                }
               </p>
             </div>
           )}
