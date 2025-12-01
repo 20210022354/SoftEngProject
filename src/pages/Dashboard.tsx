@@ -45,7 +45,7 @@ const Dashboard = () => {
           0
         );
         
-        const recent = transactions.slice(0, 5); // Already sorted in StorageService
+        const recent = transactions.slice(0, 5);
 
         // 3. Update the UI
         setStats({

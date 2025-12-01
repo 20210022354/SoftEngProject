@@ -185,7 +185,7 @@ const Layout = ({ children }: LayoutProps) => {
           <Button
             variant="outline"
             className="w-full justify-start gap-3 border-primary/20 hover:bg-destructive hover:text-destructive-foreground"
-            onClick={() => performLogout(false)} // Call the manual logout
+            onClick={() => performLogout(false)} 
           >
             <LogOut className="h-4 w-4" />
             Logout

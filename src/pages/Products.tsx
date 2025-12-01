@@ -77,14 +77,12 @@ const Products = () => {
     loadData();
   }, [activeTab]);
 
+{/*-----For loading products, categories, and history data-------*/}
   const loadData = async () => {
     try {
-      // We assume getProductHistory exists on StorageService. 
-      // If it hasn't been added to storage.ts yet, this part might need adjustment.
       const [prods, cats, hist] = await Promise.all([
         StorageService.getProducts(),
         StorageService.getCategories(),
-        // Safe check in case getProductHistory isn't async or implemented yet
         StorageService.getProductHistory ? StorageService.getProductHistory() : Promise.resolve([])
       ]);
       
@@ -163,7 +161,7 @@ const Products = () => {
         toast.success("Product added successfully");
       }
 
-      await loadData(); // Reload to update UI and History
+      await loadData();
       setIsDialogOpen(false);
       setEditingProduct(null);
     } catch (error) {

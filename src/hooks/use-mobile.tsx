@@ -1,7 +1,5 @@
 import * as React from "react";
 
-// ✅ ADJUSTED: Increased to 1024px to include tablets and prevent horizontal scrolling
-// on intermediate screen sizes.
 const MOBILE_BREAKPOINT = 1024;
 
 export function useIsMobile() {

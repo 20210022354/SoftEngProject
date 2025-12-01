@@ -20,7 +20,7 @@ import {
   Search, 
   X, 
   Filter 
-} from "lucide-react"; // ✅ Added Search, X, Filter icons
+} from "lucide-react"; 
 import {
   Dialog,
   DialogContent,
@@ -81,15 +81,11 @@ const Transactions = () => {
     }
   };
 
-  // ✅ NEW: Filter Logic
 const filteredTransactions = transactions.filter((tx) => {
     // 1. Search (Product Name ONLY)
-    // We removed the checks for (tx.user) and (tx.reason)
     const matchesSearch = tx.productName.toLowerCase().includes(searchTerm.toLowerCase());
-
     // 2. Type Filter
     const matchesType = typeFilter === "ALL" || tx.transactionType === typeFilter;
-
     // 3. Date Filter
     let matchesDate = true;
     if (dateFilter) {
@@ -413,7 +409,6 @@ const filteredTransactions = transactions.filter((tx) => {
       {/* Transactions List */}
       <Card className="border-primary/20">
         <CardHeader>
-          {/* ✅ UPDATED HEADER WITH SEARCH & FILTERS */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
               <CardTitle>Transaction History</CardTitle>

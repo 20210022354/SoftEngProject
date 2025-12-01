@@ -10,31 +10,39 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { StorageService } from "@/lib/storage";
 import { toast } from "sonner";
-import { Lock, User } from "lucide-react";
+import { Lock, User, Mail } from "lucide-react";
 
 const Login = () => {
-  // Use a generic name for the state since it can be email OR username
   const [identifier, setIdentifier] = useState(""); 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // --- FORGOT PASSWORD STATES ---
+  const [isResetOpen, setIsResetOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // ✅ SIMPLIFIED: Just pass the input directly.
-      // The StorageService.login function now handles the "Email vs Username" check internally.
       const user = await StorageService.login(identifier, password);
 
       if (user) {
         toast.success("Welcome to DTL Inventory System");
         navigate("/dashboard");
       } else {
-        // This handles incorrect password OR incorrect username
         toast.error("Invalid username/email or password.");
       }
     } catch (error) {
@@ -44,11 +52,35 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      toast.error("Please enter your email address");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await StorageService.sendPasswordReset(resetEmail);
+      toast.success("Password reset link sent! Check your email.");
+      setIsResetOpen(false); 
+      setResetEmail(""); 
+    } catch (error: any) {
+      console.error("Reset error:", error);
+      if (error.code === 'auth/user-not-found') {
+        toast.error("No account found with this email.");
+      } else {
+        toast.error("Failed to send reset link. Please try again.");
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-dark p-4">
       <div className="w-full max-w-md">
-        {/* Logo Section */}
         <div className="text-center mb-8 flex flex-col items-center">
           <img
             src="/dtl.png"
@@ -70,14 +102,14 @@ const Login = () => {
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               
-              {/* === IDENTIFIER INPUT (Email or Username) === */}
+               {/* Email/Username Input */}
               <div className="space-y-2">
                 <Label htmlFor="identifier">Email or Username</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="identifier"
-                    type="text" // ✅ Must be 'text' to allow usernames (no @ required)
+                    type="text" 
                     placeholder="Enter email or username" 
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)} 
@@ -87,7 +119,7 @@ const Login = () => {
                 </div>
               </div>
 
-              {/* === PASSWORD INPUT === */}
+              {/* Password Input */}
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
@@ -104,6 +136,7 @@ const Login = () => {
                 </div>
               </div>
 
+              {/* Sign In Button */}
               <Button
                 type="submit"
                 className="w-full bg-gradient-red hover:opacity-90 transition-all glow-red"
@@ -111,9 +144,69 @@ const Login = () => {
               >
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
+
+              {/* forgot password*/}
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResetOpen(true)}
+                  className="text-sm text-primary hover:text-red-400 hover:underline transition-colors"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+
             </form>
           </CardContent>
         </Card>
+
+        {/* pop up for forot password */}
+        <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+          <DialogContent className="bg-card border-primary/20 sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reset Password</DialogTitle>
+              <DialogDescription>
+                Enter your email address and we'll send you a link to reset your password.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <form onSubmit={handleForgotPassword} className="space-y-4 mt-2">
+              <div className="space-y-2">
+                <Label htmlFor="resetEmail">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="resetEmail"
+                    type="email"
+                    placeholder="name@example.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="pl-10 bg-secondary border-primary/20 focus:border-primary"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsResetOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-gradient-red hover:opacity-90"
+                  disabled={resetLoading}
+                >
+                  {resetLoading ? "Sending..." : "Send Reset Link"}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );

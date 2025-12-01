@@ -7,15 +7,15 @@ import {
   deleteDoc,
   orderBy, 
   getDoc,
-  query,       // Needed for Cascade Update
-  where,       // Needed for Cascade Update
-  writeBatch   // Needed for Atomic Transactions
+  query,      
+  where,       
+  writeBatch   
 } from 'firebase/firestore';
 import { 
-  signInWithEmailAndPassword, signOut,   sendPasswordResetEmail, // Need this for password reset
-  updatePassword,         // Need this for changing password
-  EmailAuthProvider,      // Need this for re-authentication
-  reauthenticateWithCredential // Need this for re-authentication
+  signInWithEmailAndPassword, signOut,   sendPasswordResetEmail, 
+  updatePassword,         
+  EmailAuthProvider,      
+  reauthenticateWithCredential 
 } from 'firebase/auth';
 import { db, auth } from "./firebase"; 
 import { Product, StockTransaction, Category, User, ReportHistory, ProductHistory } from '@/types';
@@ -26,38 +26,26 @@ const STORAGE_KEYS = { USER: 'dtl_user' };
 
 export const StorageService = {
   // --- AUTH ---
-  // ✅ 1. NEW HELPER FUNCTION GOES HERE
   findUserByIdentifier: async (identifier: string): Promise<string | null> => {
     try {
       const usersRef = collection(db, 'users');
       
-      // Check 1: Is it a Username?
       const usernameQuery = query(usersRef, where("username", "==", identifier));
       const usernameSnapshot = await getDocs(usernameQuery);
       if (!usernameSnapshot.empty) {
         return usernameSnapshot.docs[0].data().email;
       }
-
-      // Check 2: Is it a Full Name? (Optional, if you want this feature)
-      // const nameQuery = query(usersRef, where("fullName", "==", identifier));
-      // const nameSnapshot = await getDocs(nameQuery);
-      // if (!nameSnapshot.empty) {
-      //   return nameSnapshot.docs[0].data().email;
-      // }
-
-      return null; // Not found
+      return null; 
     } catch (error) {
       console.error("Error searching for user:", error);
       return null;
     }
   },
 
-  // ✅ 2. UPDATED LOGIN FUNCTION
+  //login function
   login: async (identifier: string, password: string): Promise<User | null> => {
     try {
       let emailToLogin = identifier;
-
-      // Check if input is NOT an email (assume it's a username/name)
       if (!identifier.includes('@')) {
         const foundEmail = await StorageService.findUserByIdentifier(identifier);
         if (foundEmail) {
@@ -242,10 +230,7 @@ export const StorageService = {
   },
 
   addProduct: async (product: Product) => {
-    // Safety Check: Ensure categoryName exists for Embedding
     let finalProduct = { ...product };
-    
-    // If the UI didn't pass the name, fetch it manually
     if (!finalProduct.categoryName) {
         const catDoc = await getDoc(doc(db, 'categories', product.categoryId));
         if (catDoc.exists()) {
@@ -325,7 +310,6 @@ export const StorageService = {
     await deleteDoc(doc(db, 'transactions', id));
   },
 
-  // ✅ NEW: Atomic Transaction (Safe)
   performStockTransaction: async (transaction: StockTransaction, newQuantity: number) => {
     const batch = writeBatch(db);
 
@@ -374,7 +358,6 @@ export const StorageService = {
     try {
       const txRef = collection(db, 'transactions');
       
-      // Firestore string comparison works for ISO dates (YYYY-MM-DD...)
       const q = query(
         txRef,
         where("transactionDate", ">=", startDate.toISOString()),

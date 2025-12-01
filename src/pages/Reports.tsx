@@ -315,7 +315,7 @@ const Reports = () => {
     return matchesSearch && matchesDate;
   });
 
-  // Pagination Logic
+  //breaks down all reports into a certain amount into several pages
   const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentHistoryItems = filteredHistory.slice(

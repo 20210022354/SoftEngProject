@@ -136,9 +136,8 @@ const Settings = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* ✅ FIX: Use handleChangePassword here, NOT handleSendResetEmail */}
 
-          {/* Reset Email Button */}
+          {/* Reset password through email Button */}
           <Button 
             type="button" 
             variant="outline" 
